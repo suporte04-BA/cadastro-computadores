@@ -976,6 +976,35 @@ function removePhoto() {
     }
 }
 
+async function quickToggleManStatus(id, currentStatus) {
+    var nextStatus = { 'PENDENTE': 'EM_ANDAMENTO', 'EM_ANDAMENTO': 'CONCLUIDA', 'CONCLUIDA': 'PENDENTE', 'CANCELADA': 'PENDENTE' };
+    var newStatus = nextStatus[currentStatus];
+    if (!newStatus) return;
+    try {
+        var m = await apiFetch('/api/manutencoes/' + id);
+        await apiFetch('/api/manutencoes/' + id, { method: 'PUT', body: JSON.stringify({ ...m, status: newStatus }) });
+        showToast('Status alterado para ' + newStatus.replace('_', ' '));
+        if (m.computadorId) {
+            try {
+                var statusMapQ = { 'PENDENTE': 'MANUTENCAO_PREVENTIVA', 'EM_ANDAMENTO': 'MANUTENCAO_EMERGENCIAL', 'CONCLUIDA': 'ATIVO', 'CANCELADA': 'ATIVO' };
+                var compData = await apiFetch('/api/computadores/' + m.computadorId);
+                await apiFetch('/api/computadores/' + m.computadorId, { method: 'PUT', body: JSON.stringify({ ...compData, status: statusMapQ[newStatus] || 'ATIVO' }) });
+            } catch (e) { }
+        }
+        if (newStatus === 'CONCLUIDA' || newStatus === 'CANCELADA') {
+            try {
+                var allOS = await apiFetch('/api/ordens-servico?page=0&size=100&status=ABERTA');
+                var osList = allOS.content || allOS || [];
+                var linkedOS = osList.filter(function(o) { return o.titulo && o.titulo.indexOf('Manutencao #' + id) !== -1; });
+                for (var oi = 0; oi < linkedOS.length; oi++) {
+                    await apiFetch('/api/ordens-servico/' + linkedOS[oi].id, { method: 'PUT', body: JSON.stringify({ ...linkedOS[oi], status: newStatus === 'CONCLUIDA' ? 'CONCLUIDA' : 'CANCELADA', solucao: 'Manutencao #' + id + ' ' + (newStatus === 'CONCLUIDA' ? 'concluida' : 'cancelada') }) });
+                }
+            } catch (e) { }
+        }
+        refreshAllData();
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
 function setupManutencaoPhotoUpload() {
     var dropZone = document.getElementById('manFotoDropZone');
     var fileInput = document.getElementById('manFotoFile');
@@ -1127,7 +1156,13 @@ function renderManutencoes(data, searchTerm) {
         var isCompleted = m.status === 'CONCLUIDA';
         var rowStyle = isCompleted ? 'opacity:0.55;' : '';
         var checkIcon = isCompleted ? '<i class="fas fa-check-circle" style="color:var(--green);margin-right:4px;"></i>' : '';
-        return '<tr style="' + rowStyle + '"><td class="font-medium">' + checkIcon + m.id + '</td><td>' + escapeHtml(m.computadorNome) + '</td><td><span class="badge badge-' + m.tipo.toLowerCase() + '">' + m.tipo + '</span></td><td><span class="badge badge-' + m.status.toLowerCase().replace('_', '-') + '">' + m.status.replace('_', ' ') + '</span></td><td>' + escapeHtml(m.tecnicoResponsavel || '-') + '</td><td><div style="display:flex;gap:4px;"><button onclick="showManutencaoForm(' + m.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'manutencao\',' + m.id + ',\'Manutencao #' + m.id + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
+        var dtCadastro = m.dataCadastro ? new Date(m.dataCadastro) : null;
+        var tempoAberto = '';
+        if (dtCadastro) {
+            var diff = Math.floor((Date.now() - dtCadastro.getTime()) / 86400000);
+            tempoAberto = diff === 0 ? 'Hoje' : diff + 'd atras';
+        }
+        return '<tr style="' + rowStyle + '"><td class="font-medium">' + checkIcon + m.id + '</td><td>' + escapeHtml(m.computadorNome) + '</td><td><span class="badge badge-' + m.tipo.toLowerCase() + '">' + m.tipo + '</span></td><td style="cursor:pointer;" onclick="quickToggleManStatus(' + m.id + ',\'' + m.status + '\')"><span class="badge badge-' + m.status.toLowerCase().replace('_', '-') + '">' + m.status.replace('_', ' ') + '</span>' + (tempoAberto ? '<div style="font-size:9px;color:var(--text-muted);margin-top:2px;">' + tempoAberto + '</div>' : '') + '</td><td>' + escapeHtml(m.tecnicoResponsavel || '-') + '</td><td><div style="display:flex;gap:4px;"><button onclick="showManutencaoForm(' + m.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'manutencao\',' + m.id + ',\'Manutencao #' + m.id + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
     }).join('');
     renderPagination('man-pagination', data.totalPages, data.number, loadManutencoes);
 }
@@ -1177,6 +1212,16 @@ async function showManutencaoForm(id) {
                         var newStatusU = statusMapU[p.status] || 'ATIVO';
                         var compData = await apiFetch('/api/computadores/' + p.computadorId);
                         await apiFetch('/api/computadores/' + p.computadorId, { method: 'PUT', body: JSON.stringify({ ...compData, status: newStatusU }) });
+                    } catch (e) { }
+                }
+                if (p.status === 'CONCLUIDA' || p.status === 'CANCELADA') {
+                    try {
+                        var allOS = await apiFetch('/api/ordens-servico?page=0&size=100&status=ABERTA');
+                        var osList = allOS.content || allOS || [];
+                        var linkedOS = osList.filter(function(o) { return o.titulo && o.titulo.indexOf('Manutencao #' + id) !== -1; });
+                        for (var oi = 0; oi < linkedOS.length; oi++) {
+                            await apiFetch('/api/ordens-servico/' + linkedOS[oi].id, { method: 'PUT', body: JSON.stringify({ ...linkedOS[oi], status: p.status === 'CONCLUIDA' ? 'CONCLUIDA' : 'CANCELADA', solucao: p.status === 'CONCLUIDA' ? 'Manutencao #' + id + ' concluida' : 'Manutencao #' + id + ' cancelada' }) });
+                        }
                     } catch (e) { }
                 }
             } else {
@@ -1288,14 +1333,45 @@ function renderOrdensServico(data, searchTerm) {
         items = items.filter(function(o) { return (o.titulo || '').toLowerCase().indexOf(sl) !== -1 || (o.solicitante || '').toLowerCase().indexOf(sl) !== -1 || (o.computadorNome || '').toLowerCase().indexOf(sl) !== -1; });
     }
     var priorityColors = { 'BAIXA': 'var(--green)', 'MEDIA': 'var(--yellow)', 'ALTA': 'var(--orange)', 'CRITICA': 'var(--red)' };
+    var priorityBg = { 'BAIXA': 'var(--green-bg)', 'MEDIA': 'var(--yellow-bg)', 'ALTA': 'var(--orange-bg)', 'CRITICA': 'var(--red-bg)' };
     var statusColors = { 'ABERTA': 'badge-aberta', 'EM_ANALISE': 'badge-em-analise', 'EM_EXECUCAO': 'badge-em-execucao', 'CONCLUIDA': 'badge-concluida', 'CANCELADA': 'badge-cancelada' };
+    var statusIcons = { 'ABERTA': 'fa-folder-open', 'EM_ANALISE': 'fa-search', 'EM_EXECUCAO': 'fa-cogs', 'CONCLUIDA': 'fa-check-circle', 'CANCELADA': 'fa-times-circle' };
     tb.innerHTML = items.map(function(o) {
         var dt = o.dataPrevisao ? new Date(o.dataPrevisao).toLocaleDateString('pt-BR') : '-';
+        var dtAbertura = o.dataAbertura ? new Date(o.dataAbertura) : null;
+        var tempoAberto = '';
+        if (dtAbertura) {
+            var diff = Math.floor((Date.now() - dtAbertura.getTime()) / 86400000);
+            tempoAberto = diff === 0 ? 'Hoje' : diff + 'd';
+        }
         var pColor = priorityColors[o.prioridade] || 'var(--text-muted)';
-        var pDot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + pColor + ';margin-right:6px;vertical-align:middle;" title="' + o.prioridade + '"></span>';
-        return '<tr style="cursor:pointer;" onclick="showOrdemForm(' + o.id + ')"><td class="font-medium">' + o.id + '</td><td>' + pDot + escapeHtml(o.titulo) + '</td><td>' + escapeHtml(o.computadorNome || '-') + '</td><td><span class="badge badge-' + o.prioridade.toLowerCase() + '">' + o.prioridade + '</span></td><td><span class="badge ' + (statusColors[o.status] || 'badge-pendente') + '">' + o.status.replace('_', ' ') + '</span></td><td>' + escapeHtml(o.solicitante || '-') + '</td><td>' + dt + '</td><td><div style="display:flex;gap:4px;" onclick="event.stopPropagation()"><button onclick="showOrdemForm(' + o.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'ordem\',' + o.id + ',\'' + escapeAttr(o.titulo) + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
+        var pBg = priorityBg[o.prioridade] || 'rgba(255,255,255,0.04)';
+        var sIcon = statusIcons[o.status] || 'fa-circle';
+        var isCompleted = o.status === 'CONCLUIDA' || o.status === 'CANCELADA';
+        var rowOpacity = isCompleted ? 'opacity:0.55;' : '';
+        return '<tr style="cursor:pointer;' + rowOpacity + '" onclick="showOrdemForm(' + o.id + ')">' +
+            '<td style="font-weight:700;color:' + pColor + ';">#' + o.id + '</td>' +
+            '<td style="max-width:250px;"><div style="display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + pColor + ';flex-shrink:0;"></span><span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(o.titulo) + '</span></div></td>' +
+            '<td>' + escapeHtml(o.computadorNome || '<span style="color:var(--text-muted)">-</span>') + '</td>' +
+            '<td><span class="badge badge-' + o.prioridade.toLowerCase() + '">' + o.prioridade + '</span></td>' +
+            '<td><span class="badge ' + (statusColors[o.status] || 'badge-pendente') + '" style="cursor:pointer;" onclick="event.stopPropagation();quickToggleOsStatus(' + o.id + ',\'' + o.status + '\')"><i class="fas ' + sIcon + '" style="font-size:8px;margin-right:3px;"></i>' + o.status.replace('_', ' ') + '</span></td>' +
+            '<td>' + escapeHtml(o.solicitante || '<span style="color:var(--text-muted)">-</span>') + '</td>' +
+            '<td><div style="text-align:center;"><div style="font-size:11px;">' + dt + '</div>' + (tempoAberto ? '<div style="font-size:9px;color:' + (diff > 7 ? 'var(--red)' : diff > 3 ? 'var(--yellow)' : 'var(--text-muted)') + ';">' + tempoAberto + '</div>' : '') + '</div></td>' +
+            '<td onclick="event.stopPropagation()"><div style="display:flex;gap:4px;"><button onclick="showOrdemForm(' + o.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'ordem\',' + o.id + ',\'' + escapeAttr(o.titulo) + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
     }).join('');
     renderPagination('os-pagination', data.totalPages, data.number, loadOrdensServico);
+}
+
+async function quickToggleOsStatus(id, currentStatus) {
+    var nextStatus = { 'ABERTA': 'EM_ANALISE', 'EM_ANALISE': 'EM_EXECUCAO', 'EM_EXECUCAO': 'CONCLUIDA', 'CONCLUIDA': 'ABERTA', 'CANCELADA': 'ABERTA' };
+    var newStatus = nextStatus[currentStatus];
+    if (!newStatus) return;
+    try {
+        var o = await apiFetch('/api/ordens-servico/' + id);
+        await apiFetch('/api/ordens-servico/' + id, { method: 'PUT', body: JSON.stringify({ ...o, status: newStatus }) });
+        showToast('OS #' + id + ' alterada para ' + newStatus.replace('_', ' '));
+        refreshAllData();
+    } catch (e) { showToast(e.message, 'error'); }
 }
 
 async function showOrdemForm(id) {
