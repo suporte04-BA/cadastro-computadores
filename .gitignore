@@ -1,6 +1,8 @@
 backend/target/
 backend/data/
 backend/*.log
+backend/uploads/
+backend/test_upload/
 .idea/
 *.iml
 .vscode/
