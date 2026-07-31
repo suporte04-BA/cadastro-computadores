@@ -1,6 +1,6 @@
 ﻿// ==========================================
 // Cadastro de Computadores - Inventario de TI
-// Complete Rewrite v4.1 - Chart fixes, all modules operational
+// Complete Rewrite v4.2 - Audit logging, cross-tab refresh
 // ==========================================
 const API = '';
 let currentPage = { computadores: 0, manutencoes: 0, ordensServico: 0, logs: 0 };
@@ -2050,7 +2050,12 @@ function refreshCurrentSection() {
 
 function refreshAllData() {
     loadDashboard().catch(function() {});
-    refreshCurrentSection();
+    loadComputadores(currentPage.computadores).catch(function() {});
+    loadManutencoes(currentPage.manutencoes).catch(function() {});
+    loadOrdensServico(currentPage.ordensServico).catch(function() {});
+    loadDepartamentos().catch(function() {});
+    loadUsuarios().catch(function() {});
+    loadLogs(currentPage.logs).catch(function() {});
     closeManKpiDetail();
     closeOsKpiDetail();
 }

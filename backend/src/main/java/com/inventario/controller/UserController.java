@@ -1,6 +1,7 @@
 package com.inventario.controller;
 
 import com.inventario.dto.UserDTO;
+import com.inventario.service.LogAtividadeService;
 import com.inventario.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import java.util.Map;
 public class UserController {
 
     private final UserService service;
+    private final LogAtividadeService logService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'TECNICO')")
@@ -35,8 +37,12 @@ public class UserController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> cadastrar(@Valid @RequestBody UserDTO dto) {
-        return ResponseEntity.ok(service.cadastrar(dto, true));
+    public ResponseEntity<?> cadastrar(@Valid @RequestBody UserDTO dto, Authentication auth) {
+        var result = service.cadastrar(dto, true);
+        logService.registrar(auth != null ? auth.getName() : "sistema", "CRIACAO", "USUARIO",
+            result.getId() != null ? result.getId() : null,
+            "Usuario criado: " + dto.getUsername());
+        return ResponseEntity.ok(result);
     }
 
     @PutMapping("/{id}")
@@ -45,13 +51,18 @@ public class UserController {
                                        Authentication auth) {
         boolean isAdmin = auth.getAuthorities().stream()
             .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-        return ResponseEntity.ok(service.atualizar(id, dto, isAdmin));
+        var result = service.atualizar(id, dto, isAdmin);
+        logService.registrar(auth.getName(), "ALTERACAO", "USUARIO", id,
+            "Usuario atualizado: " + dto.getUsername());
+        return ResponseEntity.ok(result);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deletar(@PathVariable Long id, Authentication auth) {
         service.deletar(id, auth.getName());
+        logService.registrar(auth.getName(), "EXCLUSAO", "USUARIO", id,
+            "Usuario excluido (ID: " + id + ")");
         return ResponseEntity.ok(Map.of("mensagem", "Usuario excluido com sucesso"));
     }
 }

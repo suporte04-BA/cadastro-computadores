@@ -2,10 +2,12 @@ package com.inventario.controller;
 
 import com.inventario.dto.*;
 import com.inventario.service.ComputadorService;
+import com.inventario.service.LogAtividadeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
@@ -15,6 +17,7 @@ import java.util.Map;
 public class ComputadorController {
 
     private final ComputadorService service;
+    private final LogAtividadeService logService;
 
     @GetMapping
     public ResponseEntity<?> listar() {
@@ -38,14 +41,21 @@ public class ComputadorController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'TECNICO')")
-    public ResponseEntity<?> cadastrar(@Valid @RequestBody ComputadorDTO dto) {
-        return ResponseEntity.ok(service.cadastrar(dto));
+    public ResponseEntity<?> cadastrar(@Valid @RequestBody ComputadorDTO dto, Authentication auth) {
+        var result = service.cadastrar(dto);
+        logService.registrar(auth != null ? auth.getName() : "sistema", "CRIACAO", "COMPUTADOR",
+            result.getId() != null ? result.getId() : null,
+            "Computador cadastrado: " + dto.getNomePc());
+        return ResponseEntity.ok(result);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'TECNICO')")
-    public ResponseEntity<?> atualizar(@PathVariable Long id, @Valid @RequestBody ComputadorDTO dto) {
-        return ResponseEntity.ok(service.atualizar(id, dto));
+    public ResponseEntity<?> atualizar(@PathVariable Long id, @Valid @RequestBody ComputadorDTO dto, Authentication auth) {
+        var result = service.atualizar(id, dto);
+        logService.registrar(auth != null ? auth.getName() : "sistema", "ALTERACAO", "COMPUTADOR", id,
+            "Computador atualizado: " + dto.getNomePc());
+        return ResponseEntity.ok(result);
     }
 
     @PatchMapping("/{id}/manutencao")
@@ -56,8 +66,10 @@ public class ComputadorController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> deletar(@PathVariable Long id) {
+    public ResponseEntity<?> deletar(@PathVariable Long id, Authentication auth) {
         service.deletar(id);
+        logService.registrar(auth != null ? auth.getName() : "sistema", "EXCLUSAO", "COMPUTADOR", id,
+            "Computador excluido (ID: " + id + ")");
         return ResponseEntity.ok(Map.of("mensagem", "Computador excluido com sucesso"));
     }
 
