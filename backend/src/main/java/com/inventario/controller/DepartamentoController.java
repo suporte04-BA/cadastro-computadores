@@ -3,8 +3,10 @@ package com.inventario.controller;
 import com.inventario.dto.DepartamentoDTO;
 import com.inventario.service.DepartamentoService;
 import com.inventario.service.LogAtividadeService;
+import com.inventario.service.WebSocketEventService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -18,13 +20,16 @@ public class DepartamentoController {
 
     private final DepartamentoService service;
     private final LogAtividadeService logService;
+    private final WebSocketEventService wsService;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECNICO', 'USUARIO')")
     public ResponseEntity<?> listar() {
         return ResponseEntity.ok(service.listarTodos());
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECNICO', 'USUARIO')")
     public ResponseEntity<?> buscarPorId(@PathVariable Long id) {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
@@ -35,8 +40,9 @@ public class DepartamentoController {
         var result = service.cadastrar(dto);
         logService.registrar(auth != null ? auth.getName() : "sistema", "CRIACAO", "SETOR",
             result.getId() != null ? result.getId() : null,
-            "Setor criado: " + dto.getNome());
-        return ResponseEntity.ok(result);
+            "Setor criado: " + sanitizeLog(dto.getNome()));
+        wsService.notifyDepartamentos("CRIACAO", result);
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
     @PutMapping("/{id}")
@@ -44,7 +50,8 @@ public class DepartamentoController {
     public ResponseEntity<?> atualizar(@PathVariable Long id, @Valid @RequestBody DepartamentoDTO dto, Authentication auth) {
         var result = service.atualizar(id, dto);
         logService.registrar(auth != null ? auth.getName() : "sistema", "ALTERACAO", "SETOR", id,
-            "Setor atualizado: " + dto.getNome());
+            "Setor atualizado: " + sanitizeLog(dto.getNome()));
+        wsService.notifyDepartamentos("ALTERACAO", result);
         return ResponseEntity.ok(result);
     }
 
@@ -54,6 +61,12 @@ public class DepartamentoController {
         service.deletar(id);
         logService.registrar(auth != null ? auth.getName() : "sistema", "EXCLUSAO", "SETOR", id,
             "Setor excluido (ID: " + id + ")");
-        return ResponseEntity.ok(Map.of("mensagem", "Departamento excluido com sucesso"));
+        wsService.notifyDepartamentos("EXCLUSAO", Map.of("id", id));
+        return ResponseEntity.noContent().build();
+    }
+
+    private String sanitizeLog(String input) {
+        if (input == null) return "";
+        return input.replaceAll("[\\p{Cntrl}\\u2028\\u2029]", "_").substring(0, Math.min(50, input.length()));
     }
 }

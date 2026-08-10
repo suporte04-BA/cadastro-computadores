@@ -16,10 +16,12 @@ public class FornecedorService {
 
     private final FornecedorRepository repository;
 
+    @Transactional(readOnly = true)
     public List<FornecedorDTO> listarTodos() {
         return repository.findAll().stream().map(this::toDTO).toList();
     }
 
+    @Transactional(readOnly = true)
     public FornecedorDTO buscarPorId(Long id) {
         return toDTO(repository.findById(id)
             .orElseThrow(() -> new RecursoNaoEncontradoException("Fornecedor", id)));

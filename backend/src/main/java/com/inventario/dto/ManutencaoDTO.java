@@ -26,7 +26,7 @@ public class ManutencaoDTO {
     private String tecnicoResponsavel;
     private LocalDateTime dataInicio;
     private LocalDateTime dataConclusao;
-    private Double custo;
     private String pecasTrocadas;
     private String fotoUrl;
+    private LocalDateTime dataCadastro;
 }

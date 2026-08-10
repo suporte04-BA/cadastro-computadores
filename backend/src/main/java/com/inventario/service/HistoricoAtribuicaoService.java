@@ -19,6 +19,7 @@ public class HistoricoAtribuicaoService {
     private final HistoricoAtribuicaoRepository repository;
     private final ComputadorRepository computadorRepository;
 
+    @Transactional(readOnly = true)
     public List<HistoricoAtribuicaoDTO> listarPorComputador(Long computadorId) {
         return repository.findByComputadorIdOrderByDataTrocaDesc(computadorId)
             .stream().map(this::toDTO).toList();
@@ -46,8 +47,8 @@ public class HistoricoAtribuicaoService {
     private HistoricoAtribuicaoDTO toDTO(HistoricoAtribuicao h) {
         return HistoricoAtribuicaoDTO.builder()
             .id(h.getId())
-            .computadorId(h.getComputador().getId())
-            .computadorNome(h.getComputador().getNomePc())
+            .computadorId(h.getComputador() != null ? h.getComputador().getId() : null)
+            .computadorNome(h.getComputador() != null ? h.getComputador().getNomePc() : null)
             .usuarioAnterior(h.getUsuarioAnterior())
             .usuarioNovo(h.getUsuarioNovo())
             .dataTroca(h.getDataTroca())

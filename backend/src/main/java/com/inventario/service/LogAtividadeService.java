@@ -32,6 +32,7 @@ public class LogAtividadeService {
         repository.save(log);
     }
 
+    @Transactional(readOnly = true)
     public PageResponse<LogAtividadeDTO> listarPaginado(int page, int size, String usuario, String entidade) {
         String u = (usuario != null && !usuario.isEmpty()) ? usuario : null;
         String e = (entidade != null && !entidade.isEmpty()) ? entidade : null;
@@ -50,6 +51,7 @@ public class LogAtividadeService {
             .build();
     }
 
+    @Transactional(readOnly = true)
     public List<LogAtividadeDTO> ultimas(int limit) {
         return repository.findAll(PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "dataAtividade")))
             .getContent().stream().map(this::toDTO).toList();

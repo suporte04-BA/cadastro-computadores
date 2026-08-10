@@ -51,9 +51,6 @@ public class Manutencao extends Auditable {
     @Column(name = "data_conclusao")
     private LocalDateTime dataConclusao;
 
-    @Column(name = "custo")
-    private Double custo;
-
     @Column(name = "pecas_trocadas", columnDefinition = "TEXT")
     private String pecasTrocadas;
 

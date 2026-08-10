@@ -34,9 +34,8 @@ public interface ManutencaoRepository extends JpaRepository<Manutencao, Long> {
     @Query("SELECT m.tipo, COUNT(m) FROM Manutencao m GROUP BY m.tipo")
     List<Object[]> countGroupByTipo();
 
-    @Query("SELECT COALESCE(SUM(m.custo), 0) FROM Manutencao m WHERE m.custo IS NOT NULL")
-    Double sumTotalCusto();
-
     @Query("SELECT FUNCTION('YEAR', m.dataInicio), FUNCTION('MONTH', m.dataInicio), COUNT(m) FROM Manutencao m WHERE m.dataInicio IS NOT NULL GROUP BY FUNCTION('YEAR', m.dataInicio), FUNCTION('MONTH', m.dataInicio) ORDER BY FUNCTION('YEAR', m.dataInicio), FUNCTION('MONTH', m.dataInicio)")
     List<Object[]> countByMes();
+
+    boolean existsByComputadorIdAndStatusIn(Long computadorId, List<StatusManutencao> status);
 }

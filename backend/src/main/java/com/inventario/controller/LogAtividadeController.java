@@ -24,12 +24,15 @@ public class LogAtividadeController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String usuario,
             @RequestParam(required = false) String entidade) {
+        page = Math.max(0, page);
+        size = Math.min(Math.max(size, 1), 100);
         return ResponseEntity.ok(service.listarPaginado(page, size, usuario, entidade));
     }
 
     @GetMapping("/recentes")
     @PreAuthorize("hasAnyRole('ADMIN', 'TECNICO')")
     public ResponseEntity<?> recentes(@RequestParam(defaultValue = "10") int limit) {
+        limit = Math.min(Math.max(limit, 1), 100);
         return ResponseEntity.ok(service.ultimas(limit));
     }
 }

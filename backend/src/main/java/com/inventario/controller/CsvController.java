@@ -4,6 +4,7 @@ import com.inventario.dto.ComputadorDTO;
 import com.inventario.exception.RegraNegocioException;
 import com.inventario.service.ComputadorService;
 import com.inventario.service.LogAtividadeService;
+import com.inventario.service.WebSocketEventService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
@@ -29,28 +31,35 @@ public class CsvController {
 
     private final ComputadorService computadorService;
     private final LogAtividadeService logService;
+    private final WebSocketEventService wsService;
 
     @GetMapping("/export/csv")
     @PreAuthorize("hasAnyRole('ADMIN', 'TECNICO')")
-    public void exportCsv(HttpServletResponse response) throws Exception {
+    public void exportCsv(HttpServletResponse response, Authentication auth) throws IOException {
         response.setContentType("text/csv;charset=UTF-8");
         response.setHeader("Content-Disposition", "attachment; filename=computadores_export.csv");
+        response.setHeader("X-Content-Type-Options", "nosniff");
 
         PrintWriter writer = response.getWriter();
-        writer.println("Nome PC,Modelo/Marca,Numero Serie,Usuario Designado,Departamento,Status,IP,Data Aquisicao,Localizacao,SO");
+        writer.println("Nome PC,Modelo/Marca,Numero Serie,Processador,Memoria RAM,Armazenamento,Usuario Designado,Departamento,Status,IP,Data Aquisicao,Data Garantia,Localizacao,SO,Fornecedor");
 
         computadorService.listarTodos().forEach(c -> {
             writer.println(join(
                 c.getNomePc(),
                 c.getModeloMarca(),
                 c.getNumeroSerie(),
+                c.getProcessador() != null ? c.getProcessador() : "",
+                c.getMemoriaRam() != null ? c.getMemoriaRam() : "",
+                c.getArmazenamento() != null ? c.getArmazenamento() : "",
                 c.getUsuarioDesignado() != null ? c.getUsuarioDesignado() : "",
                 c.getDepartamento() != null ? c.getDepartamento() : "",
                 c.getStatus() != null ? c.getStatus() : "",
                 c.getIpAddress() != null ? c.getIpAddress() : "",
                 c.getDataAquisicao() != null ? c.getDataAquisicao().toString() : "",
+                c.getDataGarantia() != null ? c.getDataGarantia().toString() : "",
                 c.getLocalizacao() != null ? c.getLocalizacao() : "",
-                c.getSistemaOperacional() != null ? c.getSistemaOperacional() : ""
+                c.getSistemaOperacional() != null ? c.getSistemaOperacional() : "",
+                c.getFornecedor() != null ? c.getFornecedor() : ""
             ));
         });
         writer.flush();
@@ -59,6 +68,9 @@ public class CsvController {
     @PostMapping("/import/csv")
     @PreAuthorize("hasAnyRole('ADMIN', 'TECNICO')")
     public ResponseEntity<?> importCsv(@RequestParam("file") MultipartFile file, Authentication auth) {
+        if (file.isEmpty()) {
+            throw new RegraNegocioException("Arquivo CSV vazio");
+        }
         Map<String, Object> result = new HashMap<>();
         int imported = 0, skipped = 0, errors = 0;
         List<String> errorMessages = new ArrayList<>();
@@ -69,48 +81,54 @@ public class CsvController {
             while ((line = reader.readLine()) != null) {
                 if (header) { header = false; continue; }
                 String[] parts = line.split(",", -1);
-                if (parts.length < 2) { errors++; errorMessages.add("Linha com menos de 2 colunas: " + line); continue; }
+                if (parts.length < 2) { errors++; errorMessages.add("Linha com menos de 2 colunas"); continue; }
 
                 try {
                     ComputadorDTO dto = new ComputadorDTO();
                     dto.setNomePc(parts.length > 0 ? parts[0].trim() : "");
                     dto.setModeloMarca(parts.length > 1 ? parts[1].trim() : "");
                     dto.setNumeroSerie(parts.length > 2 ? parts[2].trim() : "");
-                    dto.setUsuarioDesignado(parts.length > 3 ? parts[3].trim() : null);
-                    dto.setDepartamento(parts.length > 4 ? parts[4].trim() : null);
-                    dto.setStatus(parts.length > 5 ? parts[5].trim() : "ATIVO");
-                    dto.setIpAddress(parts.length > 6 ? parts[6].trim() : null);
-                    dto.setDataAquisicao(parts.length > 7 && !parts[7].trim().isEmpty() ? LocalDate.parse(parts[7].trim()) : null);
-                    dto.setLocalizacao(parts.length > 8 ? parts[8].trim() : null);
-                    dto.setSistemaOperacional(parts.length > 9 ? parts[9].trim() : null);
-                    dto.setProcessador(parts.length > 10 ? parts[10].trim() : "N/D");
-                    dto.setMemoriaRam(parts.length > 11 ? parts[11].trim() : "N/D");
-                    dto.setArmazenamento(parts.length > 12 ? parts[12].trim() : "N/D");
+                    dto.setProcessador(parts.length > 3 ? parts[3].trim() : "N/D");
+                    dto.setMemoriaRam(parts.length > 4 ? parts[4].trim() : "N/D");
+                    dto.setArmazenamento(parts.length > 5 ? parts[5].trim() : "N/D");
+                    dto.setUsuarioDesignado(parts.length > 6 ? parts[6].trim() : null);
+                    dto.setDepartamento(parts.length > 7 ? parts[7].trim() : null);
+                    dto.setStatus(parts.length > 8 ? parts[8].trim() : "ATIVO");
+                    dto.setIpAddress(parts.length > 9 ? parts[9].trim() : null);
+                    dto.setDataAquisicao(parts.length > 10 && !parts[10].trim().isEmpty() ? LocalDate.parse(parts[10].trim()) : null);
+                    dto.setDataGarantia(parts.length > 11 && !parts[11].trim().isEmpty() ? LocalDate.parse(parts[11].trim()) : null);
+                    dto.setLocalizacao(parts.length > 12 ? parts[12].trim() : null);
+                    dto.setSistemaOperacional(parts.length > 13 ? parts[13].trim() : null);
+                    dto.setFornecedor(parts.length > 14 ? parts[14].trim() : null);
 
-                    if (dto.getNomePc().isEmpty()) { skipped++; continue; }
+                    if (dto.getNomePc().isBlank()) { skipped++; continue; }
 
                     try {
                         computadorService.cadastrar(dto);
                         imported++;
                     } catch (RegraNegocioException e) {
-                        if (e.getMessage().contains("ja cadastrado")) {
+                        if (e.getMessage() != null && e.getMessage().contains("ja cadastrado")) {
                             skipped++;
                         } else {
                             errors++;
-                            errorMessages.add("Erro na linha: " + e.getMessage());
+                            errorMessages.add("Erro na linha: " + (e.getMessage() != null ? e.getMessage() : "desconhecido"));
                         }
                     }
                 } catch (Exception e) {
                     errors++;
-                    errorMessages.add("Erro na linha: " + e.getMessage());
+                    errorMessages.add("Erro na linha: " + (e.getMessage() != null ? e.getMessage() : "formato invalido"));
                 }
             }
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("erro", "Erro ao ler CSV: " + e.getMessage()));
+        } catch (IOException e) {
+            return ResponseEntity.badRequest().body(Map.of("erro", "Erro ao ler arquivo CSV"));
         }
 
-        logService.registrar(auth.getName(), "IMPORTACAO", "COMPUTADOR", null,
+        logService.registrar(auth != null ? auth.getName() : "sistema", "IMPORTACAO", "COMPUTADOR", null,
             "Importacao CSV: " + imported + " importados, " + skipped + " ignorados, " + errors + " erros");
+
+        if (imported > 0) {
+            wsService.notifyComputadores("IMPORTACAO", Map.of("total", imported, "usuario", auth != null ? auth.getName() : "sistema"));
+        }
 
         result.put("importados", imported);
         result.put("ignorados", skipped);

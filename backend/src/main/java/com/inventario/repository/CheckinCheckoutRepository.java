@@ -30,6 +30,8 @@ public interface CheckinCheckoutRepository extends JpaRepository<CheckinCheckout
 
     long countByStatus(String status);
 
+    boolean existsByComputadorIdAndStatus(Long computadorId, String status);
+
     @EntityGraph(attributePaths = {"computador"})
     Optional<CheckinCheckout> findById(Long id);
 }

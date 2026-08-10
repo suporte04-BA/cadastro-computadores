@@ -13,8 +13,9 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a1628'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='%23ffd700' font-size='14' font-weight='bold' font-family='Arial'%3ETI%3C/text%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="css/style.css?v=4.0.0">
     <style>
@@ -55,6 +56,9 @@
             </button>
              <button onclick="showSection('departamentos')" class="nav-btn" data-section="departamentos">
                 <i class="fas fa-sitemap nav-icon"></i><span>Setores</span>
+            </button>
+             <button onclick="showSection('software-licencas')" class="nav-btn" data-section="software-licencas">
+                <i class="fas fa-key nav-icon"></i><span>Software/Licencas</span>
             </button>
              <button onclick="showSection('logs')" class="nav-btn" data-section="logs">
                 <i class="fas fa-history nav-icon"></i><span>Historico</span>
@@ -110,6 +114,13 @@
 
         <!-- ==================== DASHBOARD ==================== -->
         <section id="painel" class="section-content">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+                <div></div>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="generateRelatorioGeralPDF()" class="btn btn-primary btn-sm"><i class="fas fa-file-pdf"></i> Relatorio</button>
+                    <button onclick="showSection('relatorios')" class="btn btn-ghost btn-sm"><i class="fas fa-chart-line"></i> Ver Relatorios</button>
+                </div>
+            </div>
             <div class="kpi-grid" id="dashboardKpis"></div>
             <div id="kpiDetail" class="stat-detail-panel"></div>
             <div class="dashboard-grid">
@@ -315,6 +326,9 @@
                     <option value="MANUTENCAO">Manutencao</option>
                     <option value="ORDEM_SERVICO">Ordem de Servico</option>
                     <option value="SETOR">Setor</option>
+                    <option value="CHECKOUT">Checkout</option>
+                    <option value="CHECKIN">Checkin</option>
+                    <option value="IMPORTACAO">Importacao</option>
                 </select>
             </div>
             <div class="glass-panel">
@@ -338,15 +352,15 @@
         <!-- ==================== RELATORIOS ==================== -->
         <section id="relatorios" class="section-content hidden">
             <div class="print-header">
-                <img src="assets/logo.png" alt="BA Eletrica" onerror="this.style.display='none'" style="height:40px;">
+                <img src="assets/logo.png" alt="TI" onerror="this.style.display='none'" style="height:40px;">
                 <div>
-                    <h1 style="font-size:20px;color:#00897b;font-weight:800;letter-spacing:-0.3px;">BA ELETRICA</h1>
-                    <p style="font-size:11px;color:#546e7a;font-weight:500;">Sistema de Inventario de TI - Relatorio Gerencial</p>
+                    <h1 style="font-size:20px;color:#00897b;font-weight:800;letter-spacing:-0.3px;">INVENTARIO DE TI</h1>
+                    <p style="font-size:11px;color:#546e7a;font-weight:500;">Sistema de Gestao de Inventario - Relatorio Gerencial</p>
                 </div>
                 <span class="print-date" id="printDate" style="font-size:11px;color:#78909c;font-weight:500;"></span>
             </div>
             <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center;">
-                <button onclick="window.print()" class="btn btn-primary btn-sm"><i class="fas fa-print"></i> Imprimir PDF</button>
+                <button onclick="generateRelatorioGeralPDF()" class="btn btn-primary btn-sm"><i class="fas fa-file-pdf"></i> Relatorio</button>
                 <button onclick="exportRelatoriosCSV()" class="btn btn-ghost btn-sm"><i class="fas fa-file-csv"></i> Exportar CSV</button>
                 <span style="margin-left:auto;font-size:11px;color:var(--text-muted);" id="relatorioTimestamp"></span>
             </div>
@@ -388,7 +402,7 @@
                 </div>
             </div>
             <div class="print-footer">
-                <span style="font-weight:600;color:#00897b;">BA Eletrica - Inventario de TI</span>
+                <span style="font-weight:600;color:#00897b;">Inventario de TI - Gestao de Equipamentos</span>
                 <span style="color:#78909c;">Documento gerado automaticamente pelo sistema</span>
                 <span id="printFooterDate"></span>
             </div>
@@ -580,6 +594,35 @@
                 </div>
             </div>
         </section>
+
+        <!-- ==================== SOFTWARE/LICENCAS ==================== -->
+        <section id="software-licencas" class="section-content hidden">
+            <div style="max-width:1000px;">
+                <div style="display:flex;gap:10px;margin-bottom:18px;">
+                    <input type="text" id="sw-busca-input" placeholder="Buscar software..." class="form-input" style="flex:1;">
+                    <button onclick="showSoftwareLicencaForm()" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus"></i> Novo
+                    </button>
+                </div>
+                <div class="glass-panel">
+                    <table class="data-table" id="softwareTable">
+                        <thead>
+                            <tr>
+                                <th>Software</th>
+                                <th>Fabricante</th>
+                                <th>Tipo</th>
+                                <th>Licencas</th>
+                                <th>Vencimento</th>
+                                <th style="width:80px;">Acoes</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div id="software-pagination" class="pagination" style="margin-top:12px;text-align:center;"></div>
+            </div>
+        </section>
+
     </main>
 
     <!-- ==================== MODAL DETAIL/EDIT ==================== -->
@@ -609,6 +652,14 @@
         </div>
     </div>
 
+    <!-- ==================== LIGHTBOX ==================== -->
+    <div id="lightbox-overlay" class="lightbox-overlay" onclick="closeLightbox()">
+        <button class="lightbox-close" onclick="closeLightbox()"><i class="fas fa-times"></i></button>
+        <img id="lightbox-img" src="" alt="Foto ampliada">
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <script src="js/app.js?v=4.1.0"></script>
 </body>
 </html>

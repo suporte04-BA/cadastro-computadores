@@ -5,6 +5,8 @@ import com.inventario.exception.*;
 import com.inventario.model.Computador;
 import com.inventario.model.enums.StatusComputador;
 import com.inventario.repository.ComputadorRepository;
+import com.inventario.repository.ManutencaoRepository;
+import com.inventario.model.enums.StatusManutencao;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -19,7 +21,9 @@ import java.util.*;
 public class ComputadorService {
 
     private final ComputadorRepository repository;
+    private final ManutencaoRepository manutencaoRepository;
 
+    @Transactional(readOnly = true)
     public PageResponse<ComputadorDTO> listarPaginado(int page, int size, String status, String termo) {
         StatusComputador statusEnum = null;
         if (status != null && !status.isEmpty()) {
@@ -45,11 +49,13 @@ public class ComputadorService {
             .build();
     }
 
+    @Transactional(readOnly = true)
     public List<ComputadorDTO> listarTodos() {
         return repository.findAllByOrderByIdDesc().stream()
             .map(this::toDTO).toList();
     }
 
+    @Transactional(readOnly = true)
     public ComputadorDTO buscarPorId(Long id) {
         Computador c = repository.findById(id)
             .orElseThrow(() -> new RecursoNaoEncontradoException("Computador", id));
@@ -95,7 +101,16 @@ public class ComputadorService {
         existing.setNotas(dto.getNotas());
 
         if (dto.getStatus() != null) {
-            StatusComputador newStatus = StatusComputador.valueOf(dto.getStatus());
+            StatusComputador newStatus;
+            try { newStatus = StatusComputador.valueOf(dto.getStatus()); }
+            catch (IllegalArgumentException e) { throw new RegraNegocioException("Status invalido. Valores aceitos: ATIVO, MANUTENCAO_PREDITIVA, MANUTENCAO_PREVENTIVA, MANUTENCAO_EMERGENCIAL, CONCLUIDO"); }
+            if (newStatus == StatusComputador.ATIVO) {
+                boolean hasActiveManutencao = manutencaoRepository.existsByComputadorIdAndStatusIn(
+                    id, List.of(StatusManutencao.PENDENTE, StatusManutencao.EM_ANDAMENTO));
+                if (hasActiveManutencao) {
+                    throw new RegraNegocioException("Nao e possivel definir status ATIVO: computador possui manutencao ativa (PENDENTE ou EM_ANDAMENTO)");
+                }
+            }
             existing.setStatus(newStatus);
             if (newStatus == StatusComputador.CONCLUIDO) {
                 existing.setDataUltimaManutencao(LocalDateTime.now());
@@ -128,6 +143,7 @@ public class ComputadorService {
         repository.deleteById(id);
     }
 
+    @Transactional(readOnly = true)
     public Map<String, Object> estatisticas() {
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("total", repository.count());
@@ -146,6 +162,13 @@ public class ComputadorService {
         return stats;
     }
 
+    @Transactional(readOnly = true)
+    public List<ComputadorDTO> listarManutencaoVencida() {
+        return repository.findManutencaoVencida().stream()
+            .map(this::toDTO).toList();
+    }
+
+    @Transactional(readOnly = true)
     public Map<String, Object> alertas() {
         Map<String, Object> result = new LinkedHashMap<>();
         java.time.LocalDate hoje = java.time.LocalDate.now();
@@ -193,7 +216,7 @@ public class ComputadorService {
             .armazenamento(c.getArmazenamento())
             .usuarioDesignado(c.getUsuarioDesignado())
             .fornecedor(c.getFornecedor())
-            .status(c.getStatus().name())
+            .status(c.getStatus() != null ? c.getStatus().name() : null)
             .fotoUrl(c.getFotoUrl())
             .manutencaoConcluidaSemestre(c.getManutencaoConcluidaSemestre())
             .dataAquisicao(c.getDataAquisicao())
@@ -204,6 +227,8 @@ public class ComputadorService {
             .sistemaOperacional(c.getSistemaOperacional())
             .softwareInstalado(c.getSoftwareInstalado())
             .notas(c.getNotas())
+            .proximaManutencao(c.getProximaManutencao())
+            .dataCadastro(c.getDataCriacao())
             .build();
     }
 
@@ -227,7 +252,8 @@ public class ComputadorService {
         c.setSoftwareInstalado(dto.getSoftwareInstalado());
         c.setNotas(dto.getNotas());
         if (dto.getStatus() != null) {
-            c.setStatus(StatusComputador.valueOf(dto.getStatus()));
+            try { c.setStatus(StatusComputador.valueOf(dto.getStatus())); }
+            catch (IllegalArgumentException e) { throw new RegraNegocioException("Status invalido. Valores aceitos: ATIVO, MANUTENCAO_PREDITIVA, MANUTENCAO_PREVENTIVA, MANUTENCAO_EMERGENCIAL, CONCLUIDO"); }
         }
         return c;
     }

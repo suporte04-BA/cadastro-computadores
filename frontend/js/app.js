@@ -3,7 +3,7 @@
 // Complete Rewrite v4.2 - Audit logging, cross-tab refresh
 // ==========================================
 const API = '';
-let currentPage = { computadores: 0, manutencoes: 0, ordensServico: 0, logs: 0 };
+let currentPage = { computadores: 0, manutencoes: 0, ordensServico: 0, logs: 0, software: 0 };
 let allComputadores = [];
 let selectedComputadores = new Set();
 let USE_MOCK = false;
@@ -13,8 +13,12 @@ let _activeStatKey = null;
 let _activeKpiKey = null;
 let _currentSection = 'painel';
 let _currentTab = 0;
+let _photoUploading = false;
+let _manPhotoUploading = false;
 let _manFilters = { status: '', termo: '', showConcluidas: false };
-let _adminData = null;
+let _wsClient = null;
+let _wsConnected = false;
+let _wsReconnectTimer = null;
 Chart.defaults.color = '#606070';
 Chart.defaults.borderColor = 'rgba(255,255,255,0.04)';
 Chart.defaults.font.family = "'Inter', sans-serif";
@@ -43,18 +47,18 @@ var MOCK_COMPUTADORES = [
 ];
 
 var MOCK_MANUTENCOES = [
-    { id: 1, computadorId: 3, computadorNome: 'PC-LOG-001', tipo: 'PREVENTIVA', status: 'EM_ANDAMENTO', descricao: 'Troca de pasta termica e limpeza geral', tecnicoResponsavel: 'Carlos Mendes', custo: 150.00, pecasTrocadas: 'Pasta termica Artic MX-5', observacoes: 'Agendado para manha', dataCadastro: '2024-06-10T08:00:00', dataConclusao: null },
-    { id: 2, computadorId: 4, computadorNome: 'PC-LOG-002', tipo: 'EMERGENCIAL', status: 'PENDENTE', descricao: 'PC nao liga. Verificar fonte e placa mae', tecnicoResponsavel: 'Roberto Alves', custo: null, pecasTrocadas: '', observacoes: 'Prioridade alta', dataCadastro: '2024-06-12T14:30:00', dataConclusao: null },
-    { id: 3, computadorId: 7, computadorNome: 'PC-FIN-002', tipo: 'PREDITIVA', status: 'CONCLUIDA', descricao: 'Atualizacao de firmware SSD', tecnicoResponsavel: 'Carlos Mendes', custo: 0, pecasTrocadas: 'Nenhuma', observacoes: 'Disco com 87% de saude', dataCadastro: '2024-05-20T09:00:00', dataConclusao: '2024-05-20T11:30:00' },
-    { id: 4, computadorId: 13, computadorNome: 'PC-PRD-003', tipo: 'PREVENTIVA', status: 'PENDENTE', descricao: 'Limpeza preventiva trimestral', tecnicoResponsavel: 'Maria Ferreira', custo: 80.00, pecasTrocadas: 'Filtro de po', observacoes: 'Equipamento de producao', dataCadastro: '2024-06-01T07:00:00', dataConclusao: null },
-    { id: 5, computadorId: 15, computadorNome: 'PC-ALM-001', tipo: 'CORRETIVA', status: 'EM_ANDAMENTO', descricao: 'Substituicao de HD danificado por SSD', tecnicoResponsavel: 'Roberto Alves', custo: 320.00, pecasTrocadas: 'SSD Kingston A400 240GB', observacoes: 'Backup realizado', dataCadastro: '2024-06-08T10:00:00', dataConclusao: null },
-    { id: 6, computadorId: 1, computadorNome: 'PC-ADM-001', tipo: 'PREVENTIVA', status: 'CONCLUIDA', descricao: 'Atualizacao de BIOS', tecnicoResponsavel: 'Carlos Mendes', custo: 0, pecasTrocadas: 'Nenhuma', observacoes: 'BIOS atualizada v1.3 para v1.5', dataCadastro: '2024-05-15T14:00:00', dataConclusao: '2024-05-15T15:00:00' },
-    { id: 7, computadorId: 2, computadorNome: 'PC-ADM-002', tipo: 'CORRETIVA', status: 'CANCELADA', descricao: 'Substituicao de teclado', tecnicoResponsavel: 'Maria Ferreira', custo: 89.90, pecasTrocadas: 'Teclado USB ABNT2', observacoes: 'Cancelado', dataCadastro: '2024-05-10T11:00:00', dataConclusao: null },
-    { id: 8, computadorId: 9, computadorNome: 'PC-VEN-001', tipo: 'EMERGENCIAL', status: 'CONCLUIDA', descricao: 'Remocao de malware e formatacao', tecnicoResponsavel: 'Roberto Alves', custo: 0, pecasTrocadas: 'Nenhuma', observacoes: 'Sistema reinstalado com Windows 11 Pro', dataCadastro: '2024-05-25T08:30:00', dataConclusao: '2024-05-26T17:00:00' },
-    { id: 9, computadorId: 5, computadorNome: 'PC-TI-001', tipo: 'PREDITIVA', status: 'EM_ANDAMENTO', descricao: 'Teste de estresse na memoria RAM', tecnicoResponsavel: 'Carlos Mendes', custo: 0, pecasTrocadas: '', observacoes: 'Rodando MemTest86 por 4 horas', dataCadastro: '2024-06-11T09:00:00', dataConclusao: null },
-    { id: 10, computadorId: 6, computadorNome: 'PC-FIN-001', tipo: 'PREVENTIVA', status: 'PENDENTE', descricao: 'Instalacao de updates acumulados', tecnicoResponsavel: 'Maria Ferreira', custo: 0, pecasTrocadas: 'Nenhuma', observacoes: 'Agendar para horario de almoco', dataCadastro: '2024-06-13T08:00:00', dataConclusao: null },
-    { id: 11, computadorId: 10, computadorNome: 'PC-VEN-002', tipo: 'CORRETIVA', status: 'CONCLUIDA', descricao: 'Reparo no ventilador cooling', tecnicoResponsavel: 'Roberto Alves', custo: 120.00, pecasTrocadas: 'Cooler fan 80mm', observacoes: 'Equipamento operando normalmente', dataCadastro: '2024-05-18T13:00:00', dataConclusao: '2024-05-18T15:30:00' },
-    { id: 12, computadorId: 8, computadorNome: 'PC-RH-001', tipo: 'PREDITIVA', status: 'CONCLUIDA', descricao: 'Otimizacao do Windows e desfragmentacao do SSD', tecnicoResponsavel: 'Carlos Mendes', custo: 0, pecasTrocadas: 'Nenhuma', observacoes: 'Boot reduzido de 45s para 18s', dataCadastro: '2024-05-22T16:00:00', dataConclusao: '2024-05-22T18:00:00' }
+    { id: 1, computadorId: 3, computadorNome: 'PC-LOG-001', tipo: 'PREVENTIVA', status: 'EM_ANDAMENTO', descricao: 'Troca de pasta termica e limpeza geral', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Pasta termica Artic MX-5', observacoes: 'Agendado para manha', dataCadastro: '2024-06-10T08:00:00', dataConclusao: null },
+    { id: 2, computadorId: 4, computadorNome: 'PC-LOG-002', tipo: 'EMERGENCIAL', status: 'PENDENTE', descricao: 'PC nao liga. Verificar fonte e placa mae', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: '', observacoes: 'Prioridade alta', dataCadastro: '2024-06-12T14:30:00', dataConclusao: null },
+    { id: 3, computadorId: 7, computadorNome: 'PC-FIN-002', tipo: 'PREDITIVA', status: 'CONCLUIDA', descricao: 'Atualizacao de firmware SSD', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observacoes: 'Disco com 87% de saude', dataCadastro: '2024-05-20T09:00:00', dataConclusao: '2024-05-20T11:30:00' },
+    { id: 4, computadorId: 13, computadorNome: 'PC-PRD-003', tipo: 'PREVENTIVA', status: 'PENDENTE', descricao: 'Limpeza preventiva trimestral', tecnicoResponsavel: 'Maria Ferreira', pecasTrocadas: 'Filtro de po', observacoes: 'Equipamento de producao', dataCadastro: '2024-06-01T07:00:00', dataConclusao: null },
+    { id: 5, computadorId: 15, computadorNome: 'PC-ALM-001', tipo: 'CORRETIVA', status: 'EM_ANDAMENTO', descricao: 'Substituicao de HD danificado por SSD', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: 'SSD Kingston A400 240GB', observacoes: 'Backup realizado', dataCadastro: '2024-06-08T10:00:00', dataConclusao: null },
+    { id: 6, computadorId: 1, computadorNome: 'PC-ADM-001', tipo: 'PREVENTIVA', status: 'CONCLUIDA', descricao: 'Atualizacao de BIOS', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observacoes: 'BIOS atualizada v1.3 para v1.5', dataCadastro: '2024-05-15T14:00:00', dataConclusao: '2024-05-15T15:00:00' },
+    { id: 7, computadorId: 2, computadorNome: 'PC-ADM-002', tipo: 'CORRETIVA', status: 'CANCELADA', descricao: 'Substituicao de teclado', tecnicoResponsavel: 'Maria Ferreira', pecasTrocadas: 'Teclado USB ABNT2', observacoes: 'Cancelado', dataCadastro: '2024-05-10T11:00:00', dataConclusao: null },
+    { id: 8, computadorId: 9, computadorNome: 'PC-VEN-001', tipo: 'EMERGENCIAL', status: 'CONCLUIDA', descricao: 'Remocao de malware e formatacao', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: 'Nenhuma', observacoes: 'Sistema reinstalado com Windows 11 Pro', dataCadastro: '2024-05-25T08:30:00', dataConclusao: '2024-05-26T17:00:00' },
+    { id: 9, computadorId: 5, computadorNome: 'PC-TI-001', tipo: 'PREDITIVA', status: 'EM_ANDAMENTO', descricao: 'Teste de estresse na memoria RAM', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: '', observacoes: 'Rodando MemTest86 por 4 horas', dataCadastro: '2024-06-11T09:00:00', dataConclusao: null },
+    { id: 10, computadorId: 6, computadorNome: 'PC-FIN-001', tipo: 'PREVENTIVA', status: 'PENDENTE', descricao: 'Instalacao de updates acumulados', tecnicoResponsavel: 'Maria Ferreira', pecasTrocadas: 'Nenhuma', observacoes: 'Agendar para horario de almoco', dataCadastro: '2024-06-13T08:00:00', dataConclusao: null },
+    { id: 11, computadorId: 10, computadorNome: 'PC-VEN-002', tipo: 'CORRETIVA', status: 'CONCLUIDA', descricao: 'Reparo no ventilador cooling', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: 'Cooler fan 80mm', observacoes: 'Equipamento operando normalmente', dataCadastro: '2024-05-18T13:00:00', dataConclusao: '2024-05-18T15:30:00' },
+    { id: 12, computadorId: 8, computadorNome: 'PC-RH-001', tipo: 'PREDITIVA', status: 'CONCLUIDA', descricao: 'Otimizacao do Windows e desfragmentacao do SSD', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observacoes: 'Boot reduzido de 45s para 18s', dataCadastro: '2024-05-22T16:00:00', dataConclusao: '2024-05-22T18:00:00' }
 ];
 
 var MOCK_ORDENS = [
@@ -88,6 +92,11 @@ var MOCK_DEPARTAMENTOS = [
     { id: 3, nome: 'RH', totalComputadores: 3 },
     { id: 4, nome: 'Marketing', totalComputadores: 4 },
     { id: 5, nome: 'Operacoes', totalComputadores: 6 }
+];
+
+var MOCK_SOFTWARE = [
+    { id: 1, nomeSoftware: 'Microsoft Office 365', fabricante: 'Microsoft', chaveLicenca: 'XXXXX-XXXXX-001', tipoLicenca: 'PRO', quantidadeTotal: 20, quantidadeUtilizada: 15, dataAquisicao: '2024-01-01', dataExpiracao: '2025-01-01', observacoes: '', dataCriacao: '2024-01-15T10:00:00', dataAtualizacao: '2024-01-15T10:00:00' },
+    { id: 2, nomeSoftware: 'Kaspersky Endpoint', fabricante: 'Kaspersky', chaveLicenca: 'XXXXX-XXXXX-002', tipoLicenca: 'ENTERPRISE', quantidadeTotal: 50, quantidadeUtilizada: 45, dataAquisicao: '2024-03-01', dataExpiracao: '2025-03-01', observacoes: '', dataCriacao: '2024-03-01T10:00:00', dataAtualizacao: '2024-03-01T10:00:00' }
 ];
 
 var MOCK_LOGS = [
@@ -128,7 +137,8 @@ function syncManutencaoWithComputador(computadorId, manutStatus, manutTipo) {
 function mockFetch(url, opts) {
     opts = opts || {};
     var method = (opts.method || 'GET').toUpperCase();
-    var body = opts.body ? JSON.parse(opts.body) : {};
+    var body = {};
+    try { body = opts.body ? JSON.parse(opts.body) : {}; } catch(e) { body = {}; }
 
     if (url.indexOf('/api/auth/login') !== -1) return mockAuth(body.username, body.senha);
     if (url.indexOf('/api/auth/me') !== -1) return { username: localStorage.getItem('userName') || 'admin', nomeCompleto: localStorage.getItem('userName') || 'Administrador', perfil: getPerfil() };
@@ -142,13 +152,49 @@ function mockFetch(url, opts) {
             return MOCK_DEPARTAMENTOS.find(function(d) { return d.id === dId; }) || null;
         }
         if (method === 'POST') {
-            var dNewId = Math.max.apply(null, MOCK_DEPARTAMENTOS.map(function(d) { return d.id; })) + 1;
+            var dNewId = MOCK_DEPARTAMENTOS.length > 0 ? Math.max.apply(null, MOCK_DEPARTAMENTOS.map(function(d) { return d.id; })) + 1 : 1;
             body.id = dNewId; body.totalComputadores = 0;
             MOCK_DEPARTAMENTOS.push(body);
             return body;
         }
+        if (url.indexOf('/api/departamentos/') !== -1 && method === 'PUT') {
+            var dUpId = parseInt(url.split('/api/departamentos/')[1]);
+            var dIdx = MOCK_DEPARTAMENTOS.findIndex(function(d) { return d.id === dUpId; });
+            if (dIdx !== -1) { Object.assign(MOCK_DEPARTAMENTOS[dIdx], body); return MOCK_DEPARTAMENTOS[dIdx]; }
+            return null;
+        }
         if (url.indexOf('/api/departamentos/') !== -1 && method === 'DELETE') {
             MOCK_DEPARTAMENTOS = MOCK_DEPARTAMENTOS.filter(function(d) { return d.id !== parseInt(url.split('/api/departamentos/')[1]); });
+            return {};
+        }
+    }
+
+    if (url.indexOf('/api/software-licencas') !== -1) {
+        if (method === 'GET' && url.indexOf('/api/software-licencas/') === -1) {
+            var swPs = new URLSearchParams(url.split('?')[1] || '');
+            var swPage = parseInt(swPs.get('page')) || 0;
+            var swSize = parseInt(swPs.get('size')) || 10;
+            var swContent = MOCK_SOFTWARE.slice(swPage * swSize, (swPage + 1) * swSize);
+            return { content: swContent, page: swPage, size: swSize, totalElements: MOCK_SOFTWARE.length, totalPages: Math.ceil(MOCK_SOFTWARE.length / swSize) };
+        }
+        if (url.indexOf('/api/software-licencas/') !== -1 && method === 'GET') {
+            var swId = parseInt(url.split('/api/software-licencas/')[1].split('?')[0]);
+            return MOCK_SOFTWARE.find(function(s) { return s.id === swId; }) || null;
+        }
+        if (method === 'POST') {
+            var swNewId = MOCK_SOFTWARE.length > 0 ? Math.max.apply(null, MOCK_SOFTWARE.map(function(s) { return s.id; })) + 1 : 1;
+            body.id = swNewId; body.dataCriacao = new Date().toISOString(); body.dataAtualizacao = new Date().toISOString();
+            MOCK_SOFTWARE.push(body);
+            return body;
+        }
+        if (url.indexOf('/api/software-licencas/') !== -1 && method === 'PUT') {
+            var swUpId = parseInt(url.split('/api/software-licencas/')[1]);
+            var swIdx = MOCK_SOFTWARE.findIndex(function(s) { return s.id === swUpId; });
+            if (swIdx !== -1) { Object.assign(MOCK_SOFTWARE[swIdx], body); return MOCK_SOFTWARE[swIdx]; }
+            return null;
+        }
+        if (url.indexOf('/api/software-licencas/') !== -1 && method === 'DELETE') {
+            MOCK_SOFTWARE = MOCK_SOFTWARE.filter(function(s) { return s.id !== parseInt(url.split('/api/software-licencas/')[1]); });
             return {};
         }
     }
@@ -217,7 +263,7 @@ function mockFetch(url, opts) {
         return MOCK_COMPUTADORES.find(function(c) { return c.id === parseInt(url.split('/api/computadores/')[1]); }) || null;
     }
     if (url.indexOf('/api/computadores') !== -1 && method === 'POST') {
-        body.id = Math.max.apply(null, MOCK_COMPUTADORES.map(function(c) { return c.id; })) + 1;
+        body.id = MOCK_COMPUTADORES.length > 0 ? Math.max.apply(null, MOCK_COMPUTADORES.map(function(c) { return c.id; })) + 1 : 1;
         body.dataCadastro = new Date().toISOString();
         MOCK_COMPUTADORES.push(body);
         return body;
@@ -231,6 +277,16 @@ function mockFetch(url, opts) {
     if (url.indexOf('/api/computadores/') !== -1 && method === 'DELETE') {
         MOCK_COMPUTADORES = MOCK_COMPUTADORES.filter(function(c) { return c.id !== parseInt(url.split('/api/computadores/')[1]); });
         return {};
+    }
+    if (url.indexOf('/api/computadores/bulk-status') !== -1 && method === 'PATCH') {
+        var ids = body.ids || [];
+        var st = body.status || 'ATIVO';
+        var count = 0;
+        ids.forEach(function(bid) {
+            var bi = MOCK_COMPUTADORES.findIndex(function(c) { return c.id === bid; });
+            if (bi !== -1) { MOCK_COMPUTADORES[bi].status = st; count++; }
+        });
+        return { atualizados: count };
     }
 
     if (url.indexOf('/api/manutencoes') !== -1 && url.indexOf('estatisticas') === -1) {
@@ -247,7 +303,7 @@ function mockFetch(url, opts) {
             return MOCK_MANUTENCOES.find(function(m) { return m.id === parseInt(url.split('/api/manutencoes/')[1]); }) || null;
         }
         if (method === 'POST') {
-            body.id = Math.max.apply(null, MOCK_MANUTENCOES.map(function(m) { return m.id; })) + 1;
+            body.id = MOCK_MANUTENCOES.length > 0 ? Math.max.apply(null, MOCK_MANUTENCOES.map(function(m) { return m.id; })) + 1 : 1;
             var comp = MOCK_COMPUTADORES.find(function(c) { return c.id === body.computadorId; });
             body.computadorNome = comp ? comp.nomePc : '-'; body.dataCadastro = new Date().toISOString(); body.dataConclusao = null;
             MOCK_MANUTENCOES.push(body);
@@ -289,7 +345,7 @@ function mockFetch(url, opts) {
             return MOCK_ORDENS.find(function(o) { return o.id === parseInt(url.split('/api/ordens-servico/')[1]); }) || null;
         }
         if (method === 'POST') {
-            body.id = Math.max.apply(null, MOCK_ORDENS.map(function(o) { return o.id; })) + 1;
+            body.id = MOCK_ORDENS.length > 0 ? Math.max.apply(null, MOCK_ORDENS.map(function(o) { return o.id; })) + 1 : 1;
             var comp2 = MOCK_COMPUTADORES.find(function(c) { return c.id === body.computadorId; });
             body.computadorNome = comp2 ? comp2.nomePc : '-'; body.dataAbertura = new Date().toISOString(); body.dataConclusao = null; body.solucao = null;
             MOCK_ORDENS.push(body); return body;
@@ -312,7 +368,7 @@ function mockFetch(url, opts) {
             return MOCK_USUARIOS.find(function(u) { return u.id === parseInt(url.split('/api/usuarios/')[1]); }) || null;
         }
         if (method === 'POST') {
-            body.id = Math.max.apply(null, MOCK_USUARIOS.map(function(u) { return u.id; })) + 1;
+            body.id = MOCK_USUARIOS.length > 0 ? Math.max.apply(null, MOCK_USUARIOS.map(function(u) { return u.id; })) + 1 : 1;
             body.ativo = true; body.dataCadastro = new Date().toISOString();
             MOCK_USUARIOS.push(body); return body;
         }
@@ -334,8 +390,8 @@ function mockFetch(url, opts) {
 // ==========================================
 // AUTH & API
 // ==========================================
-function getToken() { return localStorage.getItem('authToken'); }
-function getPerfil() { return localStorage.getItem('userPerfil') || 'USUARIO'; }
+function getToken() { try { return localStorage.getItem('authToken'); } catch(e) { return null; } }
+function getPerfil() { try { return localStorage.getItem('userPerfil') || 'USUARIO'; } catch(e) { return 'USUARIO'; } }
 function apiHeaders() { var t = getToken(); var h = { 'Content-Type': 'application/json' }; if (t) h['Authorization'] = 'Bearer ' + t; return h; }
 
 async function apiFetch(url, opts) {
@@ -344,14 +400,22 @@ async function apiFetch(url, opts) {
     if (!USE_MOCK) {
         try {
             var res = await fetch(API + url, opts);
-            if (res.status === 401 || res.status === 403) { localStorage.clear(); window.location.href = 'login.html'; return; }
-            var data = await res.json();
+            if (res.status === 401 || res.status === 403) { try { localStorage.clear(); } catch(e) {} window.location.href = 'login.html'; return; }
+            if (res.status === 204) return {};
+            var text = await res.text();
+            var data = text ? JSON.parse(text) : {};
             if (!res.ok) throw new Error(data.erro || data.mensagem || 'Erro na requisicao');
             return data;
         } catch (e) {
             if (e.name === 'TypeError' && e.message === 'Failed to fetch') {
-                console.warn('API indisponivel, usando mock:', e.message);
-                USE_MOCK = true;
+                if (!USE_MOCK) {
+                    USE_MOCK = true;
+                    setTimeout(function() {
+                        if (USE_MOCK && getToken()) {
+                            apiFetch('/api/auth/me').then(function() { USE_MOCK = false; }).catch(function() {});
+                        }
+                    }, 30000);
+                }
             } else { throw e; }
         }
     }
@@ -360,7 +424,7 @@ async function apiFetch(url, opts) {
     return mockResult;
 }
 
-function handleLogout() { localStorage.clear(); window.location.href = 'login.html'; }
+function handleLogout() { disconnectWs(); try { localStorage.clear(); } catch(e) {} window.location.href = 'login.html'; }
 function checkAuth() {
     if (!getToken()) { window.location.href = 'login.html'; return; }
     var n = localStorage.getItem('userName') || 'Usuario', p = getPerfil();
@@ -370,6 +434,108 @@ function checkAuth() {
     if (el('header-user-name')) el('header-user-name').textContent = n;
     var adminBtn = document.querySelector('[data-section="admin"]');
     if (adminBtn) adminBtn.style.display = (p === 'ADMIN') ? '' : 'none';
+    connectWs();
+}
+
+// ==========================================
+// WEBSOCKET (STOMP over SockJS)
+// ==========================================
+function connectWs() {
+    if (_wsConnected || USE_MOCK) return;
+    try {
+        var ws = new SockJS('/ws');
+        _wsClient = Stomp.over(ws);
+        _wsClient.debug = null;
+        _wsClient.connect({}, function() {
+            _wsConnected = true;
+            if (_wsReconnectTimer) { clearTimeout(_wsReconnectTimer); _wsReconnectTimer = null; }
+
+            _wsClient.subscribe('/topic/computadores', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
+            _wsClient.subscribe('/topic/manutencoes', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
+            _wsClient.subscribe('/topic/ordens-servico', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
+            _wsClient.subscribe('/topic/checkin-checkout', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
+            _wsClient.subscribe('/topic/departamentos', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
+            _wsClient.subscribe('/topic/usuarios', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
+            _wsClient.subscribe('/topic/logs', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
+            _wsClient.subscribe('/topic/software-licencas', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse software-licencas:', e); } });
+        }, function() {
+            _wsConnected = false;
+            console.warn('[WS] Desconectado. Reconectando em 5s...');
+            scheduleReconnect();
+        });
+    } catch (e) {
+        console.warn('[WS] Erro ao conectar:', e.message);
+        scheduleReconnect();
+    }
+}
+
+function disconnectWs() {
+    if (_wsClient) {
+        try { _wsClient.disconnect(); } catch(e) {}
+        _wsClient = null;
+    }
+    _wsConnected = false;
+    if (_wsReconnectTimer) { clearTimeout(_wsReconnectTimer); _wsReconnectTimer = null; }
+}
+
+function scheduleReconnect() {
+    if (_wsReconnectTimer) return;
+    _wsReconnectTimer = setTimeout(function() {
+        _wsReconnectTimer = null;
+        if (getToken()) connectWs();
+    }, 5000);
+}
+
+function handleWsEvent(event) {
+    if (!event || !event.acao) return;
+    var tipo = event.tipo;
+    var acao = event.acao;
+    var dados = event.dados || {};
+    var toastMsg = '';
+    var toastType = 'info';
+
+    if (tipo === 'COMPUTADOR') {
+        if (acao === 'CRIACAO') { toastMsg = 'Novo computador: ' + (dados.nomePc || ''); toastType = 'success'; }
+        else if (acao === 'ALTERACAO') { toastMsg = 'Computador atualizado por outro usuario: ' + (dados.nomePc || ''); toastType = 'info'; }
+        else if (acao === 'EXCLUSAO') { toastMsg = 'Computador removido (ID: ' + (dados.id || '') + ')'; toastType = 'warning'; }
+        else if (acao === 'ALTERACAO_EM_MASSA') { toastMsg = (dados.total || 0) + ' computadores atualizados em massa'; toastType = 'info'; }
+        else if (acao === 'EXCLUSAO_EM_MASSA') { toastMsg = (dados.total || 0) + ' computadores excluidos em massa'; toastType = 'warning'; }
+        else if (acao === 'IMPORTACAO') { toastMsg = (dados.total || 0) + ' computadores importados via CSV'; toastType = 'success'; }
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'MANUTENCAO') {
+        if (acao === 'CRIACAO') { toastMsg = 'Nova manutencao criada'; toastType = 'success'; }
+        else if (acao === 'ALTERACAO') { toastMsg = 'Manutencao atualizada'; toastType = 'info'; }
+        else if (acao === 'EXCLUSAO') { toastMsg = 'Manutencao excluida'; toastType = 'warning'; }
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'ORDEM_SERVICO') {
+        if (acao === 'CRIACAO') { toastMsg = 'Nova OS criada: ' + (dados.titulo || ''); toastType = 'success'; }
+        else if (acao === 'ALTERACAO') { toastMsg = 'OS atualizada: ' + (dados.titulo || ''); toastType = 'info'; }
+        else if (acao === 'EXCLUSAO') { toastMsg = 'OS excluida'; toastType = 'warning'; }
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'CHECKIN_CHECKOUT') {
+        if (acao === 'CHECKOUT') { toastMsg = 'Checkout realizado'; toastType = 'info'; }
+        else if (acao === 'CHECKIN') { toastMsg = 'Checkin realizado'; toastType = 'success'; }
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'DEPARTAMENTO') {
+        if (acao === 'CRIACAO') { toastMsg = 'Setor criado: ' + (dados.nome || ''); toastType = 'success'; }
+        else if (acao === 'ALTERACAO') { toastMsg = 'Setor atualizado'; toastType = 'info'; }
+        else if (acao === 'EXCLUSAO') { toastMsg = 'Setor excluido'; toastType = 'warning'; }
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'USUARIO') {
+        if (acao === 'CRIACAO') { toastMsg = 'Usuario criado: ' + (dados.username || ''); toastType = 'success'; }
+        else if (acao === 'ALTERACAO') { toastMsg = 'Usuario atualizado'; toastType = 'info'; }
+        else if (acao === 'EXCLUSAO') { toastMsg = 'Usuario excluido'; toastType = 'warning'; }
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'LOG') {
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'SOFTWARE_LICENCA') {
+        if (acao === 'CRIACAO') { toastMsg = 'Software/licenca cadastrado: ' + (dados.nomeSoftware || ''); toastType = 'success'; }
+        else if (acao === 'ALTERACAO') { toastMsg = 'Software/licenca atualizado'; toastType = 'info'; }
+        else if (acao === 'EXCLUSAO') { toastMsg = 'Software/licenca removido'; toastType = 'warning'; }
+        refreshCurrentSection(tipo);
+    }
+
+    if (toastMsg) showToast(toastMsg, toastType);
 }
 
 // ==========================================
@@ -377,6 +543,7 @@ function checkAuth() {
 // ==========================================
 function showSection(id) {
     _currentSection = id;
+    try { localStorage.setItem('currentSection', id); } catch (e) {}
     document.querySelectorAll('.section-content').forEach(function(s) { s.classList.add('hidden'); });
     var sec = document.getElementById(id);
     if (sec) sec.classList.remove('hidden');
@@ -388,8 +555,9 @@ function showSection(id) {
         'manutencoes': ['Manutencoes', 'Controle de manutencoes'],
         'ordens-servico': ['Ordens de Servico', 'Gestao de OS'],
         'departamentos': ['Setores', 'Gestao de setores'],
+        'software-licencas': ['Software/Licencas', 'Gestao de software e licencas'],
         'logs': ['Historico', 'Historico de operacoes'],
-        'relatorios': ['Relatorios', 'Estatisticas e graficos'],
+        'relatorios': ['Relatorios', 'Relatorio gerencial'],
         'usuarios': ['Usuarios', 'Gerenciamento de usuarios'],
         'admin': ['Ferramentas', 'Painel administrativo']
     };
@@ -403,6 +571,7 @@ function showSection(id) {
         case 'manutencoes': loadManutencoes(0); break;
         case 'ordens-servico': loadOrdensServico(0); break;
         case 'departamentos': loadDepartamentos(); break;
+        case 'software-licencas': loadSoftwareLicencas(0); break;
         case 'logs': loadLogs(0); break;
         case 'relatorios': loadRelatorios(); break;
         case 'usuarios': loadUsuarios(); break;
@@ -411,7 +580,7 @@ function showSection(id) {
     if (window.innerWidth < 1024) { var sb = document.getElementById('sidebar'); if (sb && sb.classList.contains('open')) toggleSidebar(); }
 }
 
-function toggleSidebar() { var s = document.getElementById('sidebar'), o = document.getElementById('sidebar-overlay'); s.classList.toggle('open'); o.style.display = s.classList.contains('open') ? 'block' : 'none'; }
+function toggleSidebar() { var s = document.getElementById('sidebar'), o = document.getElementById('sidebar-overlay'); if (!s || !o) return; s.classList.toggle('open'); o.classList.toggle('open'); }
 
 async function loadAdmin() {
     var el = document.getElementById('admin-db-info');
@@ -451,9 +620,11 @@ async function loadDashboard() {
             apiFetch('/api/ordens-servico/estatisticas').catch(function() { return null; }),
             apiFetch('/api/computadores/alertas').catch(function() { return null; })
         ]);
+        var navTotal = document.getElementById('nav-total');
+        if (navTotal && r[0]) navTotal.textContent = r[0].total || 0;
         renderDashboardKpis(r[0], r[1], r[2], r[3]);
         renderChartStatus(r[0]); renderChartManutencoes(r[1]); renderChartOrdens(r[2]); renderAlertas(r[3]);
-    } catch (e) { console.error('Erro dashboard:', e); }
+    } catch (e) { showToast('Erro ao carregar dashboard', 'error'); }
 }
 
 function renderDashboardKpis(eq, man, os, alertas) {
@@ -489,6 +660,7 @@ function renderDashboardKpis(eq, man, os, alertas) {
 
 function toggleKpiDetail(key) {
     if (_activeKpiKey === key) { closeKpiDetail(); return; }
+    closeKpiDetail();
     _activeKpiKey = key;
     document.querySelectorAll('.kpi-card').forEach(function(el) { el.classList.toggle('active', el.dataset.key === key); });
     renderKpiDetailPanel(key);
@@ -497,8 +669,8 @@ function toggleKpiDetail(key) {
 function closeKpiDetail() {
     _activeKpiKey = null;
     document.querySelectorAll('.kpi-card').forEach(function(el) { el.classList.remove('active'); });
-    var ov = document.getElementById('sdOverlay'); if (ov) ov.remove();
-    var ct = document.getElementById('sdContainer'); if (ct) ct.remove();
+    var ov = document.getElementById('sdOverlay-kpi'); if (ov) ov.remove();
+    var ct = document.getElementById('sdContainer-kpi'); if (ct) ct.remove();
 }
 
 function renderKpiDetailPanel(key) {
@@ -513,7 +685,7 @@ function renderKpiDetailPanel(key) {
             var list = d.content || d || [];
             renderKpiDetailHTML(container, title, icon, color, list.map(function(eq) {
                 var s = sm[eq.status] || { c: 'badge-inativo', i: 'fa-circle' };
-                var sl = eq.status.replace('MANUTENCAO_', 'Man. ').replace('_', ' ');
+                var sl = escapeHtml(eq.status.replace('MANUTENCAO_', 'Man. ').replace(/_/g, ' '));
                 return '<div class="stat-detail-item" onclick="showComputadorDetail(' + eq.id + ')"><div class="stat-detail-item-icon" style="background:var(--cyan-bg);color:var(--cyan);"><i class="fas fa-desktop"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(eq.nomePc) + '</div><div class="stat-detail-item-sub">' + escapeHtml(eq.modeloMarca) + ' - ' + escapeHtml(eq.usuarioDesignado || '') + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + s.c + '">' + sl + '</span></div></div>';
             }).join(''));
         });
@@ -537,7 +709,7 @@ function renderKpiDetailPanel(key) {
             list.sort(function(a, b) { return a.id - b.id; });
             renderKpiDetailHTML(container, title, icon, color, list.map(function(eq) {
                 var s = sm[eq.status] || { c: 'badge-inativo', i: 'fa-circle' };
-                var sl = eq.status.replace('MANUTENCAO_', 'Man. ').replace('_', ' ');
+                var sl = escapeHtml(eq.status.replace('MANUTENCAO_', 'Man. ').replace(/_/g, ' '));
                 return '<div class="stat-detail-item" onclick="showComputadorDetail(' + eq.id + ')"><div class="stat-detail-item-icon" style="background:var(--yellow-bg);color:var(--yellow);"><i class="fas fa-wrench"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(eq.nomePc) + '</div><div class="stat-detail-item-sub">' + escapeHtml(eq.modeloMarca) + ' - ' + escapeHtml(eq.usuarioDesignado || '') + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + s.c + '">' + sl + '</span></div></div>';
             }).join(''));
         });
@@ -550,7 +722,7 @@ function renderKpiDetailPanel(key) {
             var list = [];
             results.forEach(function(d) { list = list.concat(d.content || d || []); });
             renderKpiDetailHTML(container, title, icon, color, list.map(function(o) {
-                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--orange-bg);color:var(--orange);"><i class="fas fa-clipboard-list"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(o.titulo) + '</div><div class="stat-detail-item-sub">' + escapeHtml(o.computadorNome || 'Sem vinculo') + ' - ' + escapeHtml(o.solicitante || '') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-pendente">' + o.status.replace(/_/g, ' ') + '</span></div></div>';
+                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--orange-bg);color:var(--orange);"><i class="fas fa-clipboard-list"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(o.titulo) + '</div><div class="stat-detail-item-sub">' + escapeHtml(o.computadorNome || 'Sem vinculo') + ' - ' + escapeHtml(o.solicitante || '') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-pendente">' + escapeHtml(o.status.replace(/_/g, ' ')) + '</span></div></div>';
             }).join(''));
         });
     } else {
@@ -567,8 +739,16 @@ function renderKpiDetailPanel(key) {
                     var list = d.content || d || [];
                     renderKpiDetailHTML(container, title, icon, color, list.map(function(eq) {
                         var s = sm[eq.status] || { c: 'badge-inativo', i: 'fa-circle' };
-                        var sl = eq.status.replace('MANUTENCAO_', 'Man. ').replace('_', ' ');
+                        var sl = escapeHtml(eq.status.replace('MANUTENCAO_', 'Man. ').replace(/_/g, ' '));
                         return '<div class="stat-detail-item" onclick="showComputadorDetail(' + eq.id + ')"><div class="stat-detail-item-icon" style="background:var(--red-bg);color:var(--red);"><i class="fas fa-check-circle"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(eq.nomePc) + '</div><div class="stat-detail-item-sub">' + escapeHtml(eq.modeloMarca) + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + s.c + '">' + sl + '</span></div></div>';
+                    }).join(''));
+                });
+            } else if (key === 'dsh-man-vencida') {
+                apiFetch('/api/computadores/manutencao-vencida').then(function(list) {
+                    renderKpiDetailHTML(container, title, icon, color, list.map(function(eq) {
+                        var s = sm[eq.status] || { c: 'badge-inativo', i: 'fa-circle' };
+                        var sl = escapeHtml(eq.status.replace(/_/g, ' '));
+                        return '<div class="stat-detail-item" onclick="showComputadorDetail(' + eq.id + ')"><div class="stat-detail-item-icon" style="background:var(--red-bg);color:var(--red);"><i class="fas fa-exclamation-triangle"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(eq.nomePc) + '</div><div class="stat-detail-item-sub">' + escapeHtml(eq.modeloMarca) + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + s.c + '">' + sl + '</span></div></div>';
                     }).join(''));
                 });
             } else if (key === 'dsh-garantia') {
@@ -585,18 +765,18 @@ function renderKpiDetailPanel(key) {
 }
 
 function renderKpiDetailHTML(container, title, icon, color, itemsHtml) {
+    closeKpiDetail();
     if (!itemsHtml) itemsHtml = '<div class="stat-detail-empty"><i class="fas fa-inbox"></i> Nenhum item encontrado</div>';
     var count = (itemsHtml.match(/class="stat-detail-item"/g) || []).length;
-    closeKpiDetail();
-    var ov = document.createElement('div'); ov.id = 'sdOverlay'; ov.className = 'sd-overlay'; ov.onclick = closeKpiDetail;
-    var ct = document.createElement('div'); ct.id = 'sdContainer'; ct.className = 'sd-container';
+    var ov = document.createElement('div'); ov.id = 'sdOverlay-kpi'; ov.className = 'sd-overlay'; ov.onclick = closeKpiDetail;
+    var ct = document.createElement('div'); ct.id = 'sdContainer-kpi'; ct.className = 'sd-container';
     ct.innerHTML = '<div class="stat-detail-header"><h4><i class="fas ' + icon + '" style="color:var(--' + color + ');"></i> ' + title + ' <span style="font-weight:400;font-size:11px;color:var(--text-muted);">(' + count + ' itens)</span></h4><button class="stat-detail-close" onclick="closeKpiDetail()"><i class="fas fa-times"></i> Fechar</button></div><div class="stat-detail-body">' + itemsHtml + '</div>';
     document.body.appendChild(ov); document.body.appendChild(ct);
 }
 
 function renderChartStatus(s) {
     var ctx = document.getElementById('chartStatus'); if (!ctx) return; if (ctx._chart) ctx._chart.destroy();
-    var d = (s && s.porStatus) || {}, lb = Object.keys(d).map(function(k) { return k.replace('MANUTENCAO_', 'Man. ').replace('_', ' '); }), vl = Object.values(d);
+    var d = (s && s.porStatus) || {}, lb = Object.keys(d).map(function(k) { return k.replace('MANUTENCAO_', 'Man. ').replace(/_/g, ' '); }), vl = Object.values(d);
     var palette = [['#7dfce4','#30c8a8','#0affdc'],['#a0f0b0','#50c870','#70ff90'],['#f8e070','#d8b830','#ffe840'],['#f0b060','#d09040','#ffb840'],['#b080f0','#9060d0','#c090ff'],['#f080b0','#d06090','#ff70a0']];
     var cg = lb.map(function(_, i) { var p = palette[i % palette.length]; var g = ctx.getContext('2d').createRadialGradient(90,90,5,90,90,160); g.addColorStop(0,'#ffffff'); g.addColorStop(0.08,p[2]); g.addColorStop(0.25,p[0]); g.addColorStop(0.65,p[0]); g.addColorStop(1,p[1]); return g; });
     ctx._chart = new Chart(ctx, { type: 'doughnut', data: { labels: lb, datasets: [{ data: vl, backgroundColor: cg, borderWidth: 3, borderColor: 'rgba(8,12,24,0.9)', hoverOffset: 10, hoverBorderWidth: 4, hoverBorderColor: 'rgba(0,229,199,0.6)' }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '68%', layout: { padding: 8 }, plugins: { legend: { position: 'bottom', labels: { color: '#8892a8', padding: 14, usePointStyle: true, pointStyle: 'circle', font: { size: 10, family: 'Inter' } } }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', titleColor: '#00e5c7', bodyColor: '#e4e8f1', borderColor: 'rgba(0,229,199,0.25)', borderWidth: 1, cornerRadius: 8, padding: 12, displayColors: true, boxPadding: 4 } } } });
@@ -654,34 +834,37 @@ async function loadComputadores(page) {
         var d = await apiFetch('/api/computadores/paginado?page=' + currentPage.computadores + '&size=12&status=' + st + '&termo=' + encodeURIComponent(s));
         renderComputadoresCards(d);
     } catch (e) {
-        document.getElementById('pc-cards-grid').innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-inbox"></i><p>Nenhum computador encontrado</p></div>';
+        var grid = document.getElementById('pc-cards-grid');
+        if (grid) grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-inbox"></i><p>Nenhum computador encontrado</p></div>';
     }
 }
 
 function renderComputadoresCards(data) {
     var grid = document.getElementById('pc-cards-grid');
-    document.getElementById('nav-total').textContent = data.totalElements || 0;
+    var navTotal = document.getElementById('nav-total');
+    if (navTotal) navTotal.textContent = data.totalElements || 0;
+    if (!grid) return;
     if (!data.content || data.content.length === 0) {
         grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-inbox"></i><p>Nenhum computador encontrado</p></div>';
-        document.getElementById('cards-pagination').innerHTML = '';
+        var cp = document.getElementById('cards-pagination'); if (cp) cp.innerHTML = '';
         return;
     }
     var sm = { 'ATIVO': { c: 'badge-ativo', i: 'fa-check-circle' }, 'MANUTENCAO_PREDITIVA': { c: 'badge-preditiva', i: 'fa-search' }, 'MANUTENCAO_PREVENTIVA': { c: 'badge-preventiva', i: 'fa-shield-alt' }, 'MANUTENCAO_EMERGENCIAL': { c: 'badge-emergencial', i: 'fa-exclamation-triangle' }, 'CONCLUIDO': { c: 'badge-concluido', i: 'fa-check-double' } };
     grid.innerHTML = data.content.map(function(eq) {
         var isSelected = selectedComputadores.has(eq.id);
-        var s = sm[eq.status] || { c: 'badge-inativo', i: 'fa-circle' }, sl = eq.status.replace('MANUTENCAO_', 'Man. ').replace('_', ' ');
-        var admin = getPerfil() === 'ADMIN' ? '<button onclick="event.stopPropagation();confirmDelete(\'computador\',' + eq.id + ',\'' + escapeAttr(eq.nomePc) + '\')" class="action-btn action-btn-delete" title="Excluir"><i class="fas fa-trash"></i></button>' : '';
+        var s = sm[eq.status] || { c: 'badge-inativo', i: 'fa-circle' }, sl = escapeHtml(eq.status.replace('MANUTENCAO_', 'Man. ').replace(/_/g, ' '));
+        var admin = getPerfil() === 'ADMIN' ? '<button onclick="event.stopPropagation();confirmDelete(\'computador\',' + eq.id + ',\'' + escapeJsStr(eq.nomePc) + '\')" class="action-btn action-btn-delete" title="Excluir"><i class="fas fa-trash"></i></button>' : '';
         var checkHtml = getPerfil() === 'ADMIN' ? '<input type="checkbox" class="bulk-check" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation();toggleSelection(' + eq.id + ',this.checked)" title="Selecionar">' : '';
-        return '<div class="pc-card' + (isSelected ? ' selected' : '') + '" onclick="showComputadorDetail(' + eq.id + ')">' + checkHtml + '<div class="pc-card-foto" style="height:160px;">' + getComputerPhoto(eq, { w: 280, h: 160 }) + '<div class="pc-card-status-bar"><span class="badge ' + s.c + '"><i class="fas ' + s.i + '" style="font-size:9px;"></i> ' + sl + '</span></div></div><div class="pc-card-body"><div class="pc-card-name">' + escapeHtml(eq.nomePc) + '</div><div class="pc-card-model">' + escapeHtml(eq.modeloMarca) + '</div><div class="pc-card-specs"><span class="pc-card-spec">' + escapeHtml(eq.processador) + '</span><span class="pc-card-spec">' + escapeHtml(eq.memoriaRam) + '</span><span class="pc-card-spec">' + escapeHtml(eq.armazenamento) + '</span></div><div class="pc-card-footer"><span class="pc-card-user"><i class="fas fa-user"></i> ' + escapeHtml(eq.usuarioDesignado || 'Sem usuario') + '</span><div class="pc-card-actions" onclick="event.stopPropagation()"><button onclick="event.stopPropagation();showComputadorForm(' + eq.id + ')" class="action-btn action-btn-edit" title="Editar"><i class="fas fa-pen"></i></button>' + admin + '</div></div></div></div>';
+        return '<div class="pc-card' + (isSelected ? ' selected' : '') + '" onclick="showComputadorDetail(' + eq.id + ')">' + checkHtml + '<div class="pc-card-foto">' + getComputerPhoto(eq, { w: 320, h: 220 }) + '<div class="pc-card-status-bar"><span class="badge ' + s.c + '"><i class="fas ' + s.i + '" style="font-size:9px;"></i> ' + sl + '</span></div></div><div class="pc-card-body"><div class="pc-card-name">' + escapeHtml(eq.nomePc) + '</div><div class="pc-card-model">' + escapeHtml(eq.modeloMarca) + '</div><div class="pc-card-specs"><span class="pc-card-spec">' + escapeHtml(eq.processador) + '</span><span class="pc-card-spec">' + escapeHtml(eq.memoriaRam) + '</span><span class="pc-card-spec">' + escapeHtml(eq.armazenamento) + '</span></div><div class="pc-card-footer"><span class="pc-card-user"><i class="fas fa-user"></i> ' + escapeHtml(eq.usuarioDesignado || 'Sem usuario') + '</span><div class="pc-card-actions" onclick="event.stopPropagation()"><button onclick="event.stopPropagation();showComputadorForm(' + eq.id + ')" class="action-btn action-btn-edit" title="Editar"><i class="fas fa-pen"></i></button>' + admin + '</div></div></div></div>';
     }).join('');
-    renderPagination('cards-pagination', data.totalPages, data.number, loadComputadores);
+    renderPagination('cards-pagination', data.totalPages, data.page !== undefined ? data.page : data.number, loadComputadores);
 }
 
 async function showComputadorDetail(id) {
     try {
         var eq = await apiFetch('/api/computadores/' + id);
         var sm = { 'ATIVO': { c: 'badge-ativo', i: 'fa-check-circle' }, 'MANUTENCAO_PREDITIVA': { c: 'badge-preditiva', i: 'fa-search' }, 'MANUTENCAO_PREVENTIVA': { c: 'badge-preventiva', i: 'fa-shield-alt' }, 'MANUTENCAO_EMERGENCIAL': { c: 'badge-emergencial', i: 'fa-exclamation-triangle' }, 'CONCLUIDO': { c: 'badge-concluido', i: 'fa-check-double' } };
-        var s = sm[eq.status] || { c: 'badge-inativo', i: 'fa-circle' }, sl = eq.status.replace('MANUTENCAO_', 'Man. ').replace('_', ' ');
+        var s = sm[eq.status] || { c: 'badge-inativo', i: 'fa-circle' }, sl = escapeHtml(eq.status.replace('MANUTENCAO_', 'Man. ').replace(/_/g, ' '));
         var fotoHtml = '<div class="detail-foto" style="overflow:hidden;width:200px;height:200px;border-radius:12px;flex-shrink:0;">' + getComputerPhoto(eq, { w: 200, h: 200 }) + '</div>';
         var manutHtml = '';
         try {
@@ -690,19 +873,20 @@ async function showComputadorDetail(id) {
             if (manutList.length > 0) {
                 manutHtml = '<div style="margin-top:20px;"><h4 style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;"><i class="fas fa-wrench" style="color:var(--primary-light);margin-right:6px;"></i>Historico de Manutencao</h4>';
                 manutList.forEach(function(m) {
-                    var ms = m.status.replace('_', ' ');
-                    manutHtml += '<div style="padding:10px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge badge-' + m.tipo.toLowerCase() + '">' + m.tipo + '</span><span class="badge badge-' + m.status.toLowerCase().replace('_', '-') + '">' + ms + '</span></div><p style="font-size:12px;color:var(--text-secondary);margin-top:6px;">' + escapeHtml(m.descricao || '') + '</p>' + (m.tecnicoResponsavel ? '<p style="font-size:11px;color:var(--text-muted);margin-top:4px;"><i class="fas fa-user"></i> ' + escapeHtml(m.tecnicoResponsavel) + '</p>' : '') + '</div>';
+                    var ms = escapeHtml(m.status.replace(/_/g, ' '));
+                    manutHtml += '<div style="padding:10px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge badge-' + escapeHtml(m.tipo.toLowerCase()) + '">' + escapeHtml(m.tipo) + '</span><span class="badge badge-' + escapeHtml(m.status.toLowerCase().replace(/_/g, '-')) + '">' + ms + '</span></div><p style="font-size:12px;color:var(--text-secondary);margin-top:6px;">' + escapeHtml(m.descricao || '') + '</p>' + (m.tecnicoResponsavel ? '<p style="font-size:11px;color:var(--text-muted);margin-top:4px;"><i class="fas fa-user"></i> ' + escapeHtml(m.tecnicoResponsavel) + '</p>' : '') + '</div>';
                 });
                 manutHtml += '</div>';
             }
         } catch (e) { }
         var extraHtml = '';
         var extraItems = [];
-        if (eq.departamento) extraItems.push(['Setor', eq.departamento]);
-        if (eq.localizacao) extraItems.push(['Localizacao', eq.localizacao]);
-        if (eq.ipAddress) extraItems.push(['Endereco IP', eq.ipAddress]);
-        if (eq.sistemaOperacional) extraItems.push(['Sistema Operacional', eq.sistemaOperacional]);
-        if (eq.softwareInstalado) extraItems.push(['Software Instalado', eq.softwareInstalado]);
+        if (eq.departamento) extraItems.push(['Setor', escapeHtml(eq.departamento)]);
+        if (eq.localizacao) extraItems.push(['Localizacao', escapeHtml(eq.localizacao)]);
+        if (eq.fornecedor) extraItems.push(['Fornecedor', escapeHtml(eq.fornecedor)]);
+        if (eq.ipAddress) extraItems.push(['Endereco IP', escapeHtml(eq.ipAddress)]);
+        if (eq.sistemaOperacional) extraItems.push(['Sistema Operacional', escapeHtml(eq.sistemaOperacional)]);
+        if (eq.softwareInstalado) extraItems.push(['Software Instalado', escapeHtml(eq.softwareInstalado)]);
         if (eq.dataAquisicao) extraItems.push(['Data Aquisicao', new Date(eq.dataAquisicao + 'T00:00:00').toLocaleDateString('pt-BR')]);
         if (eq.dataGarantia) {
             var garDate = new Date(eq.dataGarantia + 'T00:00:00');
@@ -763,15 +947,16 @@ function clearBulkSelection() {
     if (countEl) countEl.textContent = '0 selecionados';
     document.querySelectorAll('.pc-card.selected').forEach(function(c) { c.classList.remove('selected'); });
     document.querySelectorAll('.bulk-check:checked').forEach(function(c) { c.checked = false; });
-    document.getElementById('bulk-status').value = '';
+    var bulkSt = document.getElementById('bulk-status'); if (bulkSt) bulkSt.value = '';
 }
 
 async function applyBulkStatus() {
-    var status = document.getElementById('bulk-status').value;
+    var bulkEl = document.getElementById('bulk-status');
+    var status = bulkEl ? bulkEl.value : '';
     if (!status || selectedComputadores.size === 0) { showToast('Selecione um status e ao menos um computador', 'error'); return; }
     try {
         var res = await apiFetch('/api/computadores/bulk-status', { method: 'PATCH', body: JSON.stringify({ ids: Array.from(selectedComputadores), status: status }) });
-        showToast(res.mensagem, 'success');
+        showToast(res.mensagem || (res.atualizados + ' computadores atualizados'), 'success');
         clearBulkSelection();
         loadComputadores(currentPage.computadores);
         refreshAllData();
@@ -779,9 +964,9 @@ async function applyBulkStatus() {
 }
 
 async function showComputadorForm(id) {
-    var eq = { nomePc: '', numeroSerie: '', modeloMarca: '', processador: '', memoriaRam: '', armazenamento: '', usuarioDesignado: '', status: 'ATIVO', fotoUrl: '' };
-    if (id) { try { eq = await apiFetch('/api/computadores/' + id); } catch (e) { } }
-    var fotoHtml = '<div class="photo-upload-area" id="photoUploadArea"><input type="file" id="eqFotoFile" accept="image/*,.heic,.heif,.avif" style="display:none;"><div id="fotoDropZone" class="foto-drop-zone"><div id="fotoPreview" class="foto-preview">' + (eq.fotoUrl && eq.fotoUrl.trim() ? '<div style="position:relative;display:inline-block;"><img src="' + escapeHtml(eq.fotoUrl) + '" style="max-height:240px;object-fit:contain;border-radius:8px;border:1px solid var(--border);" onload="this.style.display=\'block\';" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';"><div style="display:none;flex-direction:column;align-items:center;color:var(--red);padding:10px;"><i class="fas fa-exclamation-triangle" style="font-size:16px;"></i><p style="font-size:11px;margin-top:4px;">Imagem nao encontrada</p></div></div><div style="display:flex;gap:4px;margin-top:8px;"><button type="button" onclick="event.stopPropagation();document.getElementById(\'eqFotoFile\').click();" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Trocar Foto</button><button type="button" onclick="event.stopPropagation();removePhoto()" class="btn btn-ghost btn-sm"><i class="fas fa-trash"></i> Remover</button></div>' : '<i class="fas fa-image" style="font-size:36px;color:var(--text-muted);margin-bottom:12px;opacity:0.4;"></i><p style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">Arraste fotos ou clique para selecionar</p><button id="fotoUploadBtn" onclick="event.stopPropagation();document.getElementById(\'eqFotoFile\').click();" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Importar Foto</button><p style="font-size:11px;color:var(--text-muted);margin-top:10px;">JPG, PNG, GIF, WebP, HEIC, AVIF, BMP, TIFF (max 100MB)</p>') + '</div></div><input type="hidden" id="eqFotoUrlFinal" value="' + escapeAttr(eq.fotoUrl || '') + '"></div>';
+    var eq = { nomePc: '', numeroSerie: '', modeloMarca: '', processador: '', memoriaRam: '', armazenamento: '', usuarioDesignado: '', fornecedor: '', status: 'ATIVO', fotoUrl: '' };
+    if (id) { try { eq = await apiFetch('/api/computadores/' + id); } catch (e) { showToast('Erro ao carregar computador: ' + e.message, 'error'); return; } }
+    var fotoHtml = '<div class="photo-upload-area" id="photoUploadArea"><input type="file" id="eqFotoFile" accept=".jpg,.jpeg,.jfif,.png,.gif,.webp,.bmp,.tiff,.tif,.heic,.heif,.avif,.svg,.ico,image/*" style="display:none;"><div id="fotoDropZone" class="foto-drop-zone"><div id="fotoPreview" class="foto-preview">' + (eq.fotoUrl && eq.fotoUrl.trim() ? '<div style="position:relative;display:inline-block;"><img src="' + escapeHtml(eq.fotoUrl) + '" style="max-height:240px;object-fit:contain;border-radius:8px;border:1px solid var(--border);" onload="this.style.display=\'block\';" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';"><div style="display:none;flex-direction:column;align-items:center;color:var(--red);padding:10px;"><i class="fas fa-exclamation-triangle" style="font-size:16px;"></i><p style="font-size:11px;margin-top:4px;">Imagem nao encontrada</p></div></div><div style="display:flex;gap:4px;margin-top:8px;"><button type="button" onclick="event.stopPropagation();document.getElementById(\'eqFotoFile\').click();" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Trocar Foto</button><button type="button" onclick="event.stopPropagation();removePhoto()" class="btn btn-ghost btn-sm"><i class="fas fa-trash"></i> Remover</button></div>' : '<i class="fas fa-image" style="font-size:36px;color:var(--text-muted);margin-bottom:12px;opacity:0.4;"></i><p style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">Arraste fotos ou clique para selecionar</p><button id="fotoUploadBtn" onclick="event.stopPropagation();document.getElementById(\'eqFotoFile\').click();" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Importar Foto</button><p style="font-size:11px;color:var(--text-muted);margin-top:10px;">JPG, PNG, GIF, WebP, HEIC, AVIF, BMP, TIFF, SVG (max 10MB)</p>') + '</div></div><input type="hidden" id="eqFotoUrlFinal" value="' + escapeAttr(eq.fotoUrl || '') + '"></div>';
     var statusOpts = ['ATIVO', 'MANUTENCAO_PREDITIVA', 'MANUTENCAO_PREVENTIVA', 'MANUTENCAO_EMERGENCIAL', 'CONCLUIDO'].map(function(st) {
         var labels = { 'ATIVO': 'Ativo', 'MANUTENCAO_PREDITIVA': 'Manutencao Preditiva', 'MANUTENCAO_PREVENTIVA': 'Manutencao Preventiva', 'MANUTENCAO_EMERGENCIAL': 'Manutencao Emergencial', 'CONCLUIDO': 'Concluido' };
         return '<option value="' + st + '"' + (eq.status === st ? ' selected' : '') + '>' + labels[st] + '</option>';
@@ -819,6 +1004,7 @@ async function showComputadorForm(id) {
         '<div class="form-group"><label class="form-label">Memoria RAM *</label><input id="eqRam" value="' + escapeAttr(eq.memoriaRam) + '" required class="form-input" maxlength="50"></div>' +
         '<div class="form-group"><label class="form-label">Armazenamento *</label><input id="eqArm" value="' + escapeAttr(eq.armazenamento) + '" required class="form-input" maxlength="50"></div>' +
         '<div class="form-group"><label class="form-label">Usuario Designado</label><input id="eqUsuario" value="' + escapeAttr(eq.usuarioDesignado || '') + '" class="form-input" maxlength="100"></div>' +
+        '<div class="form-group"><label class="form-label">Fornecedor</label><input id="eqFornecedor" value="' + escapeAttr(eq.fornecedor || '') + '" class="form-input" placeholder="Ex: Dell, Lenovo" maxlength="100"></div>' +
         '</div>' +
         '<div class="form-group" style="margin-top:14px;"><label class="form-label">Status</label><select id="eqStatus" class="form-input">' + statusOpts + '</select></div>' +
         '</div>' +
@@ -832,6 +1018,11 @@ async function showComputadorForm(id) {
     setupSetorSearchableDropdown(eq.departamento || '');
     document.getElementById('eqForm').addEventListener('submit', async function(e) {
         e.preventDefault();
+        if (_photoUploading) {
+            showToast('Aguarde o envio da foto antes de salvar.', 'warning');
+            return;
+        }
+        var fotoVal = document.getElementById('eqFotoUrlFinal').value || null;
         var p = {
             nomePc: document.getElementById('eqNome').value,
             numeroSerie: document.getElementById('eqSerie').value,
@@ -840,8 +1031,9 @@ async function showComputadorForm(id) {
             memoriaRam: document.getElementById('eqRam').value,
             armazenamento: document.getElementById('eqArm').value,
             usuarioDesignado: document.getElementById('eqUsuario').value,
+            fornecedor: document.getElementById('eqFornecedor').value || null,
             status: document.getElementById('eqStatus').value,
-            fotoUrl: document.getElementById('eqFotoUrlFinal').value || null,
+            fotoUrl: fotoVal,
             departamento: document.getElementById('eqDepto').value || null,
             localizacao: document.getElementById('eqLocal').value || null,
             ipAddress: document.getElementById('eqIP').value || null,
@@ -856,7 +1048,7 @@ async function showComputadorForm(id) {
                 await apiFetch('/api/computadores/' + id, { method: 'PUT', body: JSON.stringify(p) });
                 showToast('Computador atualizado!');
                 closeModal();
-                showComputadorForm(id);
+                _currentTab = 0;
                 loadComputadores(currentPage.computadores);
                 refreshAllData();
             } else {
@@ -895,7 +1087,7 @@ function setupSetorSearchableDropdown(currentValue) {
     }
     function filterAndShow(term) {
         var filtered = setores.filter(function(s) { return (s.nome || '').toLowerCase().indexOf(term.toLowerCase()) !== -1; });
-        if (filtered.length === 0 || term === '') { listEl.style.display = 'none'; return; }
+        if (filtered.length === 0) { listEl.style.display = 'none'; return; }
         listEl.innerHTML = filtered.map(function(s) {
             return '<div class="searchable-dropdown-item" data-value="' + escapeAttr(s.nome) + '">' + escapeHtml(s.nome) + ' <span style="color:var(--text-muted);font-size:11px;">(' + (s.totalComputadores || 0) + ' PCs)</span></div>';
         }).join('');
@@ -931,13 +1123,13 @@ function setupPhotoUpload() {
     dropZone.addEventListener('drop', function(e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files.length) handlePhotoFile(e.dataTransfer.files[0]); });
     fileInput.addEventListener('change', function() { if (this.files.length) handlePhotoFile(this.files[0]); });
     function isImageFile(file) {
-        if (file.type && file.type.startsWith('image/')) return true;
         var n = (file.name || '').toLowerCase();
-        return !!n.match(/\.(jpe?g|png|gif|webp|bmp|tiff?|heic|heif|ico|avif|svg)$/);
+        return !!n.match(/\.(jpe?g|jfif|png|gif|webp|bmp|tiff?|heic|heif|ico|avif|svg)$/);
     }
     function handlePhotoFile(file) {
         if (!isImageFile(file)) { showToast('Formato nao suportado.', 'error'); return; }
-        if (file.size > 100 * 1024 * 1024) { showToast('Arquivo excede 100MB.', 'error'); return; }
+        if (file.size > 10 * 1024 * 1024) { showToast('Arquivo excede 10MB.', 'error'); return; }
+        _photoUploading = true;
         preview.innerHTML = '<div style="text-align:center;padding:30px;"><div class="spinner"></div><p style="font-size:12px;color:var(--text-muted);margin-top:10px;">Enviando ' + formatFileSize(file.size) + '...</p></div>';
         var fd = new FormData();
         fd.append('file', file);
@@ -946,10 +1138,17 @@ function setupPhotoUpload() {
                 if (r.status === 413) throw new Error('Arquivo muito grande.');
                 if (r.status === 415) throw new Error('Tipo nao suportado.');
                 if (r.status === 401 || r.status === 403) throw new Error('Sessao expirada.');
-                if (!r.ok) return r.json().then(function(err) { throw new Error(err.erro || err.mensagem || 'Erro'); }).catch(function(e) { if (e.message !== 'Erro') throw e; throw new Error('Erro no servidor'); });
+                if (!r.ok) {
+                    return r.text().then(function(text) {
+                        var msg = 'Erro no servidor';
+                        try { var data = JSON.parse(text); msg = data.erro || data.mensagem || msg; } catch(ex) {}
+                        throw new Error(msg);
+                    });
+                }
                 return r.json();
             })
             .then(function(data) {
+                _photoUploading = false;
                 if (data.url) {
                     urlFinal.value = data.url;
                     preview.innerHTML = '<div style="position:relative;display:inline-block;"><img src="' + escapeHtml(data.url) + '" style="max-height:240px;object-fit:contain;border-radius:8px;border:1px solid var(--border);" onload="this.style.display=\'block\';" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';"><div style="display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;color:var(--red);"><i class="fas fa-exclamation-triangle" style="font-size:20px;"></i><p style="font-size:11px;margin-top:4px;">Foto salva mas nao carregou</p></div></div><div style="display:flex;gap:4px;margin-top:8px;"><button type="button" onclick="event.stopPropagation();document.getElementById(\'eqFotoFile\').click();" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Trocar</button><button type="button" onclick="event.stopPropagation();removePhoto()" class="btn btn-ghost btn-sm"><i class="fas fa-trash"></i> Remover</button></div>';
@@ -958,6 +1157,7 @@ function setupPhotoUpload() {
                 } else { throw new Error(data.erro || 'Erro no upload'); }
             })
             .catch(function(err) {
+                _photoUploading = false;
                 showToast('Erro no upload: ' + err.message, 'error');
                 preview.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fas fa-exclamation-triangle" style="font-size:28px;color:var(--red);"></i><p style="font-size:12px;color:var(--red);margin-top:8px;max-width:220px;">' + escapeHtml(err.message) + '</p><button type="button" onclick="event.stopPropagation();document.getElementById(\'eqFotoFile\').click();" class="btn btn-ghost btn-sm" style="margin-top:8px;"><i class="fas fa-redo"></i> Tentar novamente</button></div>';
             });
@@ -968,11 +1168,12 @@ function removePhoto() {
     var preview = document.getElementById('fotoPreview');
     var urlFinal = document.getElementById('eqFotoUrlFinal');
     var fileInput = document.getElementById('eqFotoFile');
+    _photoUploading = false;
     if (urlFinal) urlFinal.value = '';
     if (fileInput) fileInput.value = '';
     if (preview) {
         preview.style.position = '';
-        preview.innerHTML = '<i class="fas fa-image" style="font-size:36px;color:var(--text-muted);margin-bottom:12px;opacity:0.4;"></i><p style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">Arraste fotos ou clique para selecionar</p><button id="fotoUploadBtn" onclick="event.stopPropagation();document.getElementById(\'eqFotoFile\').click();" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Importar Foto</button><p style="font-size:11px;color:var(--text-muted);margin-top:10px;">JPG, PNG, GIF, WebP, HEIC, AVIF, BMP (max 100MB)</p>';
+        preview.innerHTML = '<i class="fas fa-image" style="font-size:36px;color:var(--text-muted);margin-bottom:12px;opacity:0.4;"></i><p style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">Arraste fotos ou clique para selecionar</p><button id="fotoUploadBtn" onclick="event.stopPropagation();document.getElementById(\'eqFotoFile\').click();" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Importar Foto</button><p style="font-size:11px;color:var(--text-muted);margin-top:10px;">JPG, PNG, GIF, WebP, HEIC, AVIF, BMP, TIFF, SVG (max 10MB)</p>';
     }
 }
 
@@ -983,12 +1184,15 @@ async function quickToggleManStatus(id, currentStatus) {
     try {
         var m = await apiFetch('/api/manutencoes/' + id);
         await apiFetch('/api/manutencoes/' + id, { method: 'PUT', body: JSON.stringify({ ...m, status: newStatus }) });
-        showToast('Status alterado para ' + newStatus.replace('_', ' '));
+        showToast('Status alterado para ' + newStatus.replace(/_/g, ' '));
         if (m.computadorId) {
             try {
-                var statusMapQ = { 'PENDENTE': 'MANUTENCAO_PREVENTIVA', 'EM_ANDAMENTO': 'MANUTENCAO_EMERGENCIAL', 'CONCLUIDA': 'ATIVO', 'CANCELADA': 'ATIVO' };
+                var tipoToStatusQ = { 'CORRETIVA': 'MANUTENCAO_EMERGENCIAL', 'PREVENTIVA': 'MANUTENCAO_PREVENTIVA', 'PREDITIVA': 'MANUTENCAO_PREDITIVA', 'EMERGENCIAL': 'MANUTENCAO_EMERGENCIAL' };
+                var statusToStatusQ = { 'PENDENTE': null, 'EM_ANDAMENTO': null, 'CONCLUIDA': 'ATIVO', 'CANCELADA': 'ATIVO' };
+                var compStatus = statusToStatusQ[newStatus] !== undefined ? statusToStatusQ[newStatus] : (tipoToStatusQ[m.tipo] || 'MANUTENCAO_PREVENTIVA');
+                if (compStatus === null) compStatus = tipoToStatusQ[m.tipo] || 'MANUTENCAO_PREVENTIVA';
                 var compData = await apiFetch('/api/computadores/' + m.computadorId);
-                await apiFetch('/api/computadores/' + m.computadorId, { method: 'PUT', body: JSON.stringify({ ...compData, status: statusMapQ[newStatus] || 'ATIVO' }) });
+                await apiFetch('/api/computadores/' + m.computadorId, { method: 'PUT', body: JSON.stringify({ ...compData, status: compStatus }) });
             } catch (e) { }
         }
         if (newStatus === 'CONCLUIDA' || newStatus === 'CANCELADA') {
@@ -1017,22 +1221,32 @@ function setupManutencaoPhotoUpload() {
     dropZone.addEventListener('drop', function(e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files.length) handleManPhotoFile(e.dataTransfer.files[0]); });
     fileInput.addEventListener('change', function() { if (this.files.length) handleManPhotoFile(this.files[0]); });
     function isManImageFile(file) {
-        if (file.type && file.type.startsWith('image/')) return true;
         var n = (file.name || '').toLowerCase();
-        return !!n.match(/\.(jpe?g|png|gif|webp|bmp|tiff?|heic|heif|ico|avif|svg)$/);
+        return !!n.match(/\.(jpe?g|jfif|png|gif|webp|bmp|tiff?|heic|heif|ico|avif|svg)$/);
     }
     function handleManPhotoFile(file) {
         if (!isManImageFile(file)) { showToast('Formato nao suportado.', 'error'); return; }
-        if (file.size > 100 * 1024 * 1024) { showToast('Arquivo excede 100MB.', 'error'); return; }
+        if (file.size > 10 * 1024 * 1024) { showToast('Arquivo excede 10MB.', 'error'); return; }
+        _manPhotoUploading = true;
         preview.innerHTML = '<div style="text-align:center;padding:16px;"><div class="spinner"></div><p style="font-size:11px;color:var(--text-muted);margin-top:6px;">Enviando...</p></div>';
         var fd = new FormData();
         fd.append('file', file);
         fetch(API + '/api/upload', { method: 'POST', headers: { 'Authorization': 'Bearer ' + getToken() }, body: fd })
             .then(function(r) {
-                if (!r.ok) throw new Error('Erro no upload');
+                if (r.status === 413) throw new Error('Arquivo muito grande.');
+                if (r.status === 415) throw new Error('Tipo nao suportado.');
+                if (r.status === 401 || r.status === 403) throw new Error('Sessao expirada.');
+                if (!r.ok) {
+                    return r.text().then(function(text) {
+                        var msg = 'Erro no servidor';
+                        try { var data = JSON.parse(text); msg = data.erro || data.mensagem || msg; } catch(ex) {}
+                        throw new Error(msg);
+                    });
+                }
                 return r.json();
             })
             .then(function(data) {
+                _manPhotoUploading = false;
                 if (data.url) {
                     urlFinal.value = data.url;
                     preview.innerHTML = '<img src="' + escapeHtml(data.url) + '" style="max-height:100px;object-fit:contain;border-radius:8px;border:1px solid var(--border);" onload="this.style.display=\'block\';" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';"><div style="display:none;color:var(--red);font-size:11px;">Falha ao carregar</div><div style="display:flex;gap:4px;margin-top:6px;"><button type="button" onclick="event.stopPropagation();document.getElementById(\'manFotoFile\').click();" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Trocar</button><button type="button" onclick="event.stopPropagation();removeManFoto()" class="btn btn-ghost btn-sm"><i class="fas fa-trash"></i> Remover</button></div>';
@@ -1040,6 +1254,7 @@ function setupManutencaoPhotoUpload() {
                 } else { throw new Error(data.erro || 'Erro no upload'); }
             })
             .catch(function(err) {
+                _manPhotoUploading = false;
                 showToast('Erro no upload: ' + err.message, 'error');
                 preview.innerHTML = '<div style="text-align:center;padding:12px;"><i class="fas fa-exclamation-triangle" style="font-size:20px;color:var(--red);"></i><p style="font-size:11px;color:var(--red);margin-top:4px;">' + escapeHtml(err.message) + '</p><button type="button" onclick="event.stopPropagation();document.getElementById(\'manFotoFile\').click();" class="btn btn-ghost btn-sm" style="margin-top:4px;"><i class="fas fa-redo"></i> Tentar</button></div>';
             });
@@ -1050,6 +1265,7 @@ function removeManFoto() {
     var preview = document.getElementById('manFotoPreview');
     var urlFinal = document.getElementById('manFotoUrlFinal');
     var fileInput = document.getElementById('manFotoFile');
+    _manPhotoUploading = false;
     if (urlFinal) urlFinal.value = '';
     if (fileInput) fileInput.value = '';
     if (preview) {
@@ -1069,11 +1285,13 @@ async function loadManutencoes(page) {
     try {
         var allUrl = '/api/manutencoes?page=' + currentPage.manutencoes + '&size=10';
         if (st) allUrl += '&status=' + st;
+        if (sb) allUrl = '/api/manutencoes?page=0&size=100' + (st ? '&status=' + st : '');
         var d = await apiFetch(allUrl);
-        renderManutencoes(d, sb);
+        renderManutencoes(d, sb, st);
         renderManKpis();
     } catch (e) {
-        document.querySelector('#manutencoesTable tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Nenhuma manutencao encontrada</td></tr>';
+        var tb = document.querySelector('#manutencoesTable tbody');
+        if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Nenhuma manutencao encontrada</td></tr>';
     }
 }
 
@@ -1098,6 +1316,7 @@ async function renderManKpis() {
 var _activeManKpiKey = null;
 function toggleManKpiDetail(key) {
     if (_activeManKpiKey === key) { closeManKpiDetail(); return; }
+    closeManKpiDetail();
     _activeManKpiKey = key;
     document.querySelectorAll('#manKpis .kpi-card').forEach(function(el) { el.classList.toggle('active', el.dataset.key === key); });
     renderManKpiDetail(key);
@@ -1105,8 +1324,8 @@ function toggleManKpiDetail(key) {
 function closeManKpiDetail() {
     _activeManKpiKey = null;
     document.querySelectorAll('#manKpis .kpi-card').forEach(function(el) { el.classList.remove('active'); });
-    var ov = document.getElementById('sdOverlay'); if (ov) ov.remove();
-    var ct = document.getElementById('sdContainer'); if (ct) ct.remove();
+    var ov = document.getElementById('sdOverlay-man'); if (ov) ov.remove();
+    var ct = document.getElementById('sdContainer-man'); if (ct) ct.remove();
 }
 function renderManKpiDetail(key) {
     var container = document.getElementById('manKpiDetail');
@@ -1118,13 +1337,13 @@ function renderManKpiDetail(key) {
     else if (key === 'man-kpi-concluidas') { title = 'Manutencoes Concluidas'; icon = 'fa-check-double'; color = 'green'; statusFilter = '&status=CONCLUIDA'; }
     else if (key === 'man-kpi-canceladas') { title = 'Manutencoes Canceladas'; icon = 'fa-times-circle'; color = 'red'; statusFilter = '&status=CANCELADA'; }
     apiFetch('/api/manutencoes?page=0&size=100' + statusFilter).then(function(d) {
-        var list = (d.content || d || []);
         closeManKpiDetail();
+        var list = (d.content || d || []);
         var count = list.length;
-        var ov = document.createElement('div'); ov.id = 'sdOverlay'; ov.className = 'sd-overlay'; ov.onclick = closeManKpiDetail;
-        var ct = document.createElement('div'); ct.id = 'sdContainer'; ct.className = 'sd-container';
+        var ov = document.createElement('div'); ov.id = 'sdOverlay-man'; ov.className = 'sd-overlay'; ov.onclick = closeManKpiDetail;
+        var ct = document.createElement('div'); ct.id = 'sdContainer-man'; ct.className = 'sd-container';
         var itemsHtml = list.map(function(m) {
-            return '<div class="stat-detail-item" onclick="showManutencaoForm(' + m.id + ')"><div class="stat-detail-item-icon" style="background:var(--' + color + '-bg);color:var(--' + color + ');"><i class="fas fa-wrench"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(m.computadorNome || 'PC #' + m.computadorId) + '</div><div class="stat-detail-item-sub">' + escapeHtml(m.tipo) + ' - ' + escapeHtml(m.tecnicoResponsavel || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-' + m.status.toLowerCase().replace('_', '-') + '">' + m.status.replace(/_/g, ' ') + '</span></div></div>';
+            return '<div class="stat-detail-item" onclick="showManutencaoForm(' + m.id + ')"><div class="stat-detail-item-icon" style="background:var(--' + color + '-bg);color:var(--' + color + ');"><i class="fas fa-wrench"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(m.computadorNome || 'PC #' + m.computadorId) + '</div><div class="stat-detail-item-sub">' + escapeHtml(m.tipo) + ' - ' + escapeHtml(m.tecnicoResponsavel || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-' + escapeHtml(m.status.toLowerCase().replace(/_/g, '-')) + '">' + escapeHtml(m.status.replace(/_/g, ' ')) + '</span></div></div>';
         }).join('');
         if (!itemsHtml) itemsHtml = '<div class="stat-detail-empty"><i class="fas fa-inbox"></i> Nenhum item encontrado</div>';
         ct.innerHTML = '<div class="stat-detail-header"><h4><i class="fas ' + icon + '" style="color:var(--' + color + ');"></i> ' + title + ' <span style="font-weight:400;font-size:11px;color:var(--text-muted);">(' + count + ' itens)</span></h4><button class="stat-detail-close" onclick="closeManKpiDetail()"><i class="fas fa-times"></i> Fechar</button></div><div class="stat-detail-body">' + itemsHtml + '</div>';
@@ -1132,15 +1351,16 @@ function renderManKpiDetail(key) {
     });
 }
 
-function renderManutencoes(data, searchTerm) {
+function renderManutencoes(data, searchTerm, serverStatus) {
     var tb = document.querySelector('#manutencoesTable tbody');
+    if (!tb) return;
     if (!data.content || data.content.length === 0) {
-        tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Nenhuma manutencao encontrada</td></tr>';
-        document.getElementById('man-pagination').innerHTML = '';
+        tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Nenhuma manutencao encontrada</td></tr>';
+        var mp = document.getElementById('man-pagination'); if (mp) mp.innerHTML = '';
         return;
     }
     var items = data.content;
-    if (!_manFilters.showConcluidas) {
+    if (!serverStatus && !_manFilters.showConcluidas && !_manFilters.status) {
         items = items.filter(function(m) { return m.status !== 'CONCLUIDA' && m.status !== 'CANCELADA'; });
     }
     if (searchTerm) {
@@ -1148,10 +1368,13 @@ function renderManutencoes(data, searchTerm) {
         items = items.filter(function(m) { return (m.computadorNome || '').toLowerCase().indexOf(sl) !== -1 || (m.tecnicoResponsavel || '').toLowerCase().indexOf(sl) !== -1 || (m.descricao || '').toLowerCase().indexOf(sl) !== -1; });
     }
     if (items.length === 0) {
-        tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Nenhuma manutencao encontrada</td></tr>';
-        document.getElementById('man-pagination').innerHTML = '';
+        tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Nenhuma manutencao encontrada</td></tr>';
+        var mp2 = document.getElementById('man-pagination'); if (mp2) mp2.innerHTML = '';
         return;
     }
+    var pageSize = 10;
+    var filteredTotalPages = Math.ceil(items.length / pageSize);
+    renderPagination('man-pagination', filteredTotalPages, 0, loadManutencoes);
     tb.innerHTML = items.map(function(m) {
         var isCompleted = m.status === 'CONCLUIDA';
         var rowStyle = isCompleted ? 'opacity:0.55;' : '';
@@ -1162,15 +1385,14 @@ function renderManutencoes(data, searchTerm) {
             var diff = Math.floor((Date.now() - dtCadastro.getTime()) / 86400000);
             tempoAberto = diff === 0 ? 'Hoje' : diff + 'd atras';
         }
-        return '<tr style="' + rowStyle + '"><td class="font-medium">' + checkIcon + m.id + '</td><td>' + escapeHtml(m.computadorNome) + '</td><td><span class="badge badge-' + m.tipo.toLowerCase() + '">' + m.tipo + '</span></td><td style="cursor:pointer;" onclick="quickToggleManStatus(' + m.id + ',\'' + m.status + '\')"><span class="badge badge-' + m.status.toLowerCase().replace('_', '-') + '">' + m.status.replace('_', ' ') + '</span>' + (tempoAberto ? '<div style="font-size:9px;color:var(--text-muted);margin-top:2px;">' + tempoAberto + '</div>' : '') + '</td><td>' + escapeHtml(m.tecnicoResponsavel || '-') + '</td><td><div style="display:flex;gap:4px;"><button onclick="showManutencaoForm(' + m.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'manutencao\',' + m.id + ',\'Manutencao #' + m.id + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
+        return '<tr style="' + rowStyle + '"><td class="font-medium">' + checkIcon + m.id + '</td><td>' + escapeHtml(m.computadorNome) + '</td><td><span class="badge badge-' + escapeHtml(m.tipo.toLowerCase()) + '">' + escapeHtml(m.tipo) + '</span></td><td style="cursor:pointer;" onclick="quickToggleManStatus(' + m.id + ',\'' + escapeJsStr(m.status) + '\')"><span class="badge badge-' + escapeHtml(m.status.toLowerCase().replace(/_/g, '-')) + '">' + escapeHtml(m.status.replace(/_/g, ' ')) + '</span>' + (tempoAberto ? '<div style="font-size:9px;color:var(--text-muted);margin-top:2px;">' + tempoAberto + '</div>' : '') + '</td><td>' + escapeHtml(m.tecnicoResponsavel || '-') + '</td><td><div style="display:flex;gap:4px;"><button onclick="showManutencaoForm(' + m.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'manutencao\',' + m.id + ',\'Manutencao #' + m.id + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
     }).join('');
-    renderPagination('man-pagination', data.totalPages, data.number, loadManutencoes);
 }
 
 async function showManutencaoForm(id) {
     var m = { tipo: 'CORRETIVA', status: 'PENDENTE', descricao: '' };
-    if (id) { try { m = await apiFetch('/api/manutencoes/' + id); } catch (e) { } }
-    if (allComputadores.length === 0) { try { allComputadores = await apiFetch('/api/computadores/paginado?page=0&size=100&status=&termo='); } catch (e) { } }
+    if (id) { try { m = await apiFetch('/api/manutencoes/' + id); } catch (e) { showToast('Erro ao carregar manutencao: ' + e.message, 'error'); return; } }
+    try { allComputadores = await apiFetch('/api/computadores/paginado?page=0&size=100&status=&termo='); } catch (e) { allComputadores = { content: [] }; }
     var compList = allComputadores.content || allComputadores;
     var opts = compList.map(function(c) { return '<option value="' + c.id + '"' + (m.computadorId == c.id ? ' selected' : '') + '>' + escapeHtml(c.nomePc) + ' (' + escapeHtml(c.numeroSerie) + ')</option>'; }).join('');
     var usuarios = [];
@@ -1182,22 +1404,24 @@ async function showManutencaoForm(id) {
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;"><div class="form-group"><label class="form-label">Tipo</label><select id="manTipo" class="form-input"><option value="CORRETIVA"' + (m.tipo === 'CORRETIVA' ? ' selected' : '') + '>Corretiva</option><option value="PREVENTIVA"' + (m.tipo === 'PREVENTIVA' ? ' selected' : '') + '>Preventiva</option><option value="PREDITIVA"' + (m.tipo === 'PREDITIVA' ? ' selected' : '') + '>Preditiva</option><option value="EMERGENCIAL"' + (m.tipo === 'EMERGENCIAL' ? ' selected' : '') + '>Emergencial</option></select></div>' +
         '<div class="form-group"><label class="form-label">Status</label><select id="manStatus" class="form-input"><option value="PENDENTE"' + (m.status === 'PENDENTE' ? ' selected' : '') + '>Pendente</option><option value="EM_ANDAMENTO"' + (m.status === 'EM_ANDAMENTO' ? ' selected' : '') + '>Em Andamento</option><option value="CONCLUIDA"' + (m.status === 'CONCLUIDA' ? ' selected' : '') + '>Concluida</option><option value="CANCELADA"' + (m.status === 'CANCELADA' ? ' selected' : '') + '>Cancelada</option></select></div></div>' +
         '<div class="form-group" style="margin-top:14px;"><label class="form-label">Descricao</label><textarea id="manDescricao" required class="form-input" style="min-height:80px;resize:vertical;">' + escapeHtml(m.descricao || '') + '</textarea></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;"><div class="form-group"><label class="form-label">Tecnico Responsavel</label><select id="manTecnico" class="form-input"><option value="">Selecione...</option>' + tecnicoOpts + '</select></div>' +
-        '<div class="form-group"><label class="form-label">Custo (R$)</label><input type="number" step="0.01" id="manCusto" value="' + (m.custo || '') + '" class="form-input"></div></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;"><div class="form-group"><label class="form-label">Tecnico Responsavel</label><select id="manTecnico" class="form-input"><option value="">Selecione...</option>' + tecnicoOpts + '</select></div></div>' +
         '<div class="form-group" style="margin-top:14px;"><label class="form-label">Pecas Trocadas</label><input id="manPecas" value="' + escapeAttr(m.pecasTrocadas || '') + '" class="form-input"></div>' +
         '<div class="form-group" style="margin-top:14px;"><label class="form-label">Observacoes</label><textarea id="manObs" class="form-input" style="min-height:60px;resize:vertical;">' + escapeHtml(m.observacoes || '') + '</textarea></div>' +
-        '<div class="photo-upload-area" style="margin-top:14px;"><input type="file" id="manFotoFile" accept="image/*" style="display:none;"><div id="manFotoDropZone" class="foto-drop-zone" style="min-height:80px;"><div id="manFotoPreview" class="foto-preview"><i class="fas fa-camera" style="font-size:24px;color:var(--text-muted);margin-bottom:8px;opacity:0.4;"></i><p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">Arraste ou clique para adicionar foto</p><button type="button" onclick="event.stopPropagation();document.getElementById(\'manFotoFile\').click();" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Importar</button></div></div><input type="hidden" id="manFotoUrlFinal" value="' + escapeAttr(m.fotoUrl || '') + '"></div></form>',
+        '<div class="photo-upload-area" style="margin-top:14px;"><input type="file" id="manFotoFile" accept=".jpg,.jpeg,.jfif,.png,.gif,.webp,.bmp,.tiff,.tif,.heic,.heif,.avif,.svg,.ico,image/*" style="display:none;"><div id="manFotoDropZone" class="foto-drop-zone" style="min-height:80px;"><div id="manFotoPreview" class="foto-preview"><i class="fas fa-camera" style="font-size:24px;color:var(--text-muted);margin-bottom:8px;opacity:0.4;"></i><p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">Arraste ou clique para adicionar foto</p><button type="button" onclick="event.stopPropagation();document.getElementById(\'manFotoFile\').click();" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Importar</button></div></div><input type="hidden" id="manFotoUrlFinal" value="' + escapeAttr(m.fotoUrl || '') + '"></div></form>',
         '<button onclick="closeModal()" class="btn btn-ghost btn-sm">Cancelar</button><button onclick="document.getElementById(\'manForm\').requestSubmit()" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> ' + (id ? 'Salvar' : 'Cadastrar') + '</button>'
     );
     document.getElementById('manForm').addEventListener('submit', async function(e) {
         e.preventDefault();
+        if (_manPhotoUploading) {
+            showToast('Aguarde o envio da foto antes de salvar.', 'warning');
+            return;
+        }
         var p = {
             computadorId: parseInt(document.getElementById('manComputador').value),
             tipo: document.getElementById('manTipo').value,
             status: document.getElementById('manStatus').value,
             descricao: document.getElementById('manDescricao').value,
             tecnicoResponsavel: document.getElementById('manTecnico').value,
-            custo: document.getElementById('manCusto').value ? parseFloat(document.getElementById('manCusto').value) : null,
             pecasTrocadas: document.getElementById('manPecas').value,
             observacoes: document.getElementById('manObs').value,
             fotoUrl: document.getElementById('manFotoUrlFinal').value || null
@@ -1206,44 +1430,41 @@ async function showManutencaoForm(id) {
             if (id) {
                 await apiFetch('/api/manutencoes/' + id, { method: 'PUT', body: JSON.stringify(p) });
                 showToast('Manutencao atualizada!');
-                if (p.computadorId) {
-                    try {
-                        var statusMapU = { 'PENDENTE': 'MANUTENCAO_PREVENTIVA', 'EM_ANDAMENTO': 'MANUTENCAO_EMERGENCIAL', 'CONCLUIDA': 'ATIVO', 'CANCELADA': 'ATIVO' };
-                        var newStatusU = statusMapU[p.status] || 'ATIVO';
-                        var compData = await apiFetch('/api/computadores/' + p.computadorId);
-                        await apiFetch('/api/computadores/' + p.computadorId, { method: 'PUT', body: JSON.stringify({ ...compData, status: newStatusU }) });
-                    } catch (e) { }
-                }
-                if (p.status === 'CONCLUIDA' || p.status === 'CANCELADA') {
-                    try {
-                        var allOS = await apiFetch('/api/ordens-servico?page=0&size=100&status=ABERTA');
-                        var osList = allOS.content || allOS || [];
-                        var linkedOS = osList.filter(function(o) { return o.titulo && o.titulo.indexOf('Manutencao #' + id) !== -1; });
-                        for (var oi = 0; oi < linkedOS.length; oi++) {
-                            await apiFetch('/api/ordens-servico/' + linkedOS[oi].id, { method: 'PUT', body: JSON.stringify({ ...linkedOS[oi], status: p.status === 'CONCLUIDA' ? 'CONCLUIDA' : 'CANCELADA', solucao: p.status === 'CONCLUIDA' ? 'Manutencao #' + id + ' concluida' : 'Manutencao #' + id + ' cancelada' }) });
-                        }
-                    } catch (e) { }
-                }
             } else {
                 var res = await apiFetch('/api/manutencoes', { method: 'POST', body: JSON.stringify(p) });
                 showToast('Manutencao cadastrada!');
                 if (res && res.id) {
-                    var comp = compList.find(function(c) { return c.id === p.computadorId; });
                     try {
+                        var comp = compList.find(function(c) { return c.id === p.computadorId; });
                         await apiFetch('/api/ordens-servico', { method: 'POST', body: JSON.stringify({ titulo: 'OS - Manutencao #' + res.id + ' - ' + (comp ? comp.nomePc : ''), descricao: 'Ordem aberta automaticamente para manutencao #' + res.id, computadorId: p.computadorId, prioridade: 'MEDIA', status: 'ABERTA', solicitante: p.tecnicoResponsavel || '', tecnicoResponsavel: p.tecnicoResponsavel || '', solucao: 'Aguardando inicio da manutencao ' + res.id }) });
-                    } catch (e) { }
-                }
-                if (p.computadorId) {
-                    try {
-                        var statusMap = { 'PENDENTE': 'MANUTENCAO_PREVENTIVA', 'EM_ANDAMENTO': 'MANUTENCAO_EMERGENCIAL', 'CONCLUIDA': 'ATIVO', 'CANCELADA': 'ATIVO' };
-                        var newStatus = statusMap[p.status] || 'ATIVO';
-                        var compData2 = await apiFetch('/api/computadores/' + p.computadorId);
-                        await apiFetch('/api/computadores/' + p.computadorId, { method: 'PUT', body: JSON.stringify({ ...compData2, status: newStatus }) });
-                    } catch (e) { }
+                    } catch (e) { console.warn('[MANUT] Erro ao criar OS:', e); }
                 }
             }
+            if (p.computadorId) {
+                try {
+                    var tipoToStatus = { 'CORRETIVA': 'MANUTENCAO_EMERGENCIAL', 'PREVENTIVA': 'MANUTENCAO_PREVENTIVA', 'PREDITIVA': 'MANUTENCAO_PREDITIVA', 'EMERGENCIAL': 'MANUTENCAO_EMERGENCIAL' };
+                    var statusToStatus = { 'PENDENTE': null, 'EM_ANDAMENTO': null, 'CONCLUIDA': 'ATIVO', 'CANCELADA': 'ATIVO' };
+                    var newStatus = statusToStatus[p.status] !== undefined ? statusToStatus[p.status] : (tipoToStatus[p.tipo] || 'MANUTENCAO_PREVENTIVA');
+                    if (newStatus === null) newStatus = tipoToStatus[p.tipo] || 'MANUTENCAO_PREVENTIVA';
+                    var compData = await apiFetch('/api/computadores/' + p.computadorId);
+                    await apiFetch('/api/computadores/' + p.computadorId, { method: 'PUT', body: JSON.stringify({ ...compData, status: newStatus }) });
+                } catch (e) { console.warn('[MANUT] Erro ao sincronizar status:', e); }
+            }
+            if (p.status === 'CONCLUIDA' || p.status === 'CANCELADA' || p.status === 'EM_ANDAMENTO') {
+                try {
+                    var statusFiltro = p.status === 'EM_ANDAMENTO' ? 'ABERTA' : 'ABERTA';
+                    var allOS = await apiFetch('/api/ordens-servico?page=0&size=100&status=' + statusFiltro);
+                    var osList = allOS.content || allOS || [];
+                    var linkedOS = osList.filter(function(o) { return o.titulo && o.titulo.indexOf('Manutencao #' + res.id) !== -1; });
+                    var osStatusMap = { 'EM_ANDAMENTO': 'EM_EXECUCAO', 'CONCLUIDA': 'CONCLUIDA', 'CANCELADA': 'CANCELADA' };
+                    var osSolucaoMap = { 'EM_ANDAMENTO': 'Manutencao #' + res.id + ' em andamento', 'CONCLUIDA': 'Manutencao #' + res.id + ' concluida', 'CANCELADA': 'Manutencao #' + res.id + ' cancelada' };
+                    for (var oi = 0; oi < linkedOS.length; oi++) {
+                        await apiFetch('/api/ordens-servico/' + linkedOS[oi].id, { method: 'PUT', body: JSON.stringify({ ...linkedOS[oi], status: osStatusMap[p.status], solucao: osSolucaoMap[p.status] }) });
+                    }
+                } catch (e) { console.warn('[MANUT] Erro ao sincronizar OS:', e); }
+            }
             closeModal(); loadManutencoes(0); refreshAllData();
-        } catch (e) { showToast(e.message, 'error'); }
+        } catch (e) { showToast(e.message, 'error'); closeModal(); }
     });
     setupManutencaoPhotoUpload();
 }
@@ -1257,11 +1478,14 @@ async function loadOrdensServico(page) {
     var pr = (document.getElementById('os-filtro-prioridade') || {}).value || '';
     var sb = (document.getElementById('os-busca-input') || {}).value || '';
     try {
-        var d = await apiFetch('/api/ordens-servico?page=' + currentPage.ordensServico + '&size=10&status=' + st + '&prioridade=' + pr);
+        var osUrl = '/api/ordens-servico?page=' + currentPage.ordensServico + '&size=10&status=' + st + '&prioridade=' + pr;
+        if (sb) osUrl = '/api/ordens-servico?page=0&size=100' + (st ? '&status=' + st : '') + (pr ? '&prioridade=' + pr : '');
+        var d = await apiFetch(osUrl);
         renderOrdensServico(d, sb);
         renderOsKpis();
     } catch (e) {
-        document.querySelector('#ordensTable tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Nenhuma ordem encontrada</td></tr>';
+        var tb = document.querySelector('#ordensTable tbody');
+        if (tb) tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Nenhuma ordem encontrada</td></tr>';
     }
 }
 
@@ -1286,6 +1510,7 @@ async function renderOsKpis() {
 var _activeOsKpiKey = null;
 function toggleOsKpiDetail(key) {
     if (_activeOsKpiKey === key) { closeOsKpiDetail(); return; }
+    closeOsKpiDetail();
     _activeOsKpiKey = key;
     document.querySelectorAll('#osKpis .kpi-card').forEach(function(el) { el.classList.toggle('active', el.dataset.key === key); });
     renderOsKpiDetail(key);
@@ -1293,8 +1518,8 @@ function toggleOsKpiDetail(key) {
 function closeOsKpiDetail() {
     _activeOsKpiKey = null;
     document.querySelectorAll('#osKpis .kpi-card').forEach(function(el) { el.classList.remove('active'); });
-    var ov = document.getElementById('sdOverlay'); if (ov) ov.remove();
-    var ct = document.getElementById('sdContainer'); if (ct) ct.remove();
+    var ov = document.getElementById('sdOverlay-os'); if (ov) ov.remove();
+    var ct = document.getElementById('sdContainer-os'); if (ct) ct.remove();
 }
 function renderOsKpiDetail(key) {
     var container = document.getElementById('osKpiDetail');
@@ -1306,13 +1531,13 @@ function renderOsKpiDetail(key) {
     else if (key === 'os-kpi-execucao') { title = 'OS Em Execucao'; icon = 'fa-cogs'; color = 'green'; statusFilter = '&status=EM_EXECUCAO'; }
     else if (key === 'os-kpi-concluidas') { title = 'OS Concluidas'; icon = 'fa-check-circle'; color = 'green'; statusFilter = '&status=CONCLUIDA'; }
     apiFetch('/api/ordens-servico?page=0&size=100' + statusFilter).then(function(d) {
-        var list = (d.content || d || []);
         closeOsKpiDetail();
+        var list = (d.content || d || []);
         var count = list.length;
-        var ov = document.createElement('div'); ov.id = 'sdOverlay'; ov.className = 'sd-overlay'; ov.onclick = closeOsKpiDetail;
-        var ct = document.createElement('div'); ct.id = 'sdContainer'; ct.className = 'sd-container';
+        var ov = document.createElement('div'); ov.id = 'sdOverlay-os'; ov.className = 'sd-overlay'; ov.onclick = closeOsKpiDetail;
+        var ct = document.createElement('div'); ct.id = 'sdContainer-os'; ct.className = 'sd-container';
         var itemsHtml = list.map(function(o) {
-            return '<div class="stat-detail-item" onclick="showOrdemForm(' + o.id + ')"><div class="stat-detail-item-icon" style="background:var(--' + color + '-bg);color:var(--' + color + ');"><i class="fas fa-clipboard-list"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(o.titulo) + '</div><div class="stat-detail-item-sub">' + escapeHtml(o.computadorNome || 'Sem vinculo') + ' - ' + escapeHtml(o.solicitante || '') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-' + o.status.toLowerCase().replace('_', '-') + '">' + o.status.replace(/_/g, ' ') + '</span></div></div>';
+            return '<div class="stat-detail-item" onclick="showOrdemForm(' + o.id + ')"><div class="stat-detail-item-icon" style="background:var(--' + color + '-bg);color:var(--' + color + ');"><i class="fas fa-clipboard-list"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(o.titulo) + '</div><div class="stat-detail-item-sub">' + escapeHtml(o.computadorNome || 'Sem vinculo') + ' - ' + escapeHtml(o.solicitante || '') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-' + escapeHtml(o.status.toLowerCase().replace(/_/g, '-')) + '">' + escapeHtml(o.status.replace(/_/g, ' ')) + '</span></div></div>';
         }).join('');
         if (!itemsHtml) itemsHtml = '<div class="stat-detail-empty"><i class="fas fa-inbox"></i> Nenhum item encontrado</div>';
         ct.innerHTML = '<div class="stat-detail-header"><h4><i class="fas ' + icon + '" style="color:var(--' + color + ');"></i> ' + title + ' <span style="font-weight:400;font-size:11px;color:var(--text-muted);">(' + count + ' itens)</span></h4><button class="stat-detail-close" onclick="closeOsKpiDetail()"><i class="fas fa-times"></i> Fechar</button></div><div class="stat-detail-body">' + itemsHtml + '</div>';
@@ -1322,9 +1547,10 @@ function renderOsKpiDetail(key) {
 
 function renderOrdensServico(data, searchTerm) {
     var tb = document.querySelector('#ordensTable tbody');
+    if (!tb) return;
     if (!data.content || data.content.length === 0) {
         tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Nenhuma ordem encontrada</td></tr>';
-        document.getElementById('os-pagination').innerHTML = '';
+        var op = document.getElementById('os-pagination'); if (op) op.innerHTML = '';
         return;
     }
     var items = data.content;
@@ -1336,12 +1562,16 @@ function renderOrdensServico(data, searchTerm) {
     var priorityBg = { 'BAIXA': 'var(--green-bg)', 'MEDIA': 'var(--yellow-bg)', 'ALTA': 'var(--orange-bg)', 'CRITICA': 'var(--red-bg)' };
     var statusColors = { 'ABERTA': 'badge-aberta', 'EM_ANALISE': 'badge-em-analise', 'EM_EXECUCAO': 'badge-em-execucao', 'CONCLUIDA': 'badge-concluida', 'CANCELADA': 'badge-cancelada' };
     var statusIcons = { 'ABERTA': 'fa-folder-open', 'EM_ANALISE': 'fa-search', 'EM_EXECUCAO': 'fa-cogs', 'CONCLUIDA': 'fa-check-circle', 'CANCELADA': 'fa-times-circle' };
+    var osPageSize = 10;
+    var filteredOsTotalPages = Math.ceil(items.length / osPageSize);
+    renderPagination('os-pagination', filteredOsTotalPages, 0, loadOrdensServico);
     tb.innerHTML = items.map(function(o) {
         var dt = o.dataPrevisao ? new Date(o.dataPrevisao).toLocaleDateString('pt-BR') : '-';
         var dtAbertura = o.dataAbertura ? new Date(o.dataAbertura) : null;
         var tempoAberto = '';
+        var diff = 0;
         if (dtAbertura) {
-            var diff = Math.floor((Date.now() - dtAbertura.getTime()) / 86400000);
+            diff = Math.floor((Date.now() - dtAbertura.getTime()) / 86400000);
             tempoAberto = diff === 0 ? 'Hoje' : diff + 'd';
         }
         var pColor = priorityColors[o.prioridade] || 'var(--text-muted)';
@@ -1352,32 +1582,31 @@ function renderOrdensServico(data, searchTerm) {
         return '<tr style="cursor:pointer;' + rowOpacity + '" onclick="showOrdemForm(' + o.id + ')">' +
             '<td style="font-weight:700;color:' + pColor + ';">#' + o.id + '</td>' +
             '<td style="max-width:250px;"><div style="display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + pColor + ';flex-shrink:0;"></span><span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(o.titulo) + '</span></div></td>' +
-            '<td>' + escapeHtml(o.computadorNome || '<span style="color:var(--text-muted)">-</span>') + '</td>' +
-            '<td><span class="badge badge-' + o.prioridade.toLowerCase() + '">' + o.prioridade + '</span></td>' +
-            '<td><span class="badge ' + (statusColors[o.status] || 'badge-pendente') + '" style="cursor:pointer;" onclick="event.stopPropagation();quickToggleOsStatus(' + o.id + ',\'' + o.status + '\')"><i class="fas ' + sIcon + '" style="font-size:8px;margin-right:3px;"></i>' + o.status.replace('_', ' ') + '</span></td>' +
-            '<td>' + escapeHtml(o.solicitante || '<span style="color:var(--text-muted)">-</span>') + '</td>' +
+            '<td>' + (o.computadorNome ? escapeHtml(o.computadorNome) : '<span style="color:var(--text-muted)">-</span>') + '</td>' +
+            '<td><span class="badge badge-' + escapeHtml(o.prioridade.toLowerCase()) + '">' + escapeHtml(o.prioridade) + '</span></td>' +
+            '<td><span class="badge ' + (statusColors[o.status] || 'badge-pendente') + '" style="cursor:pointer;" onclick="event.stopPropagation();quickToggleOsStatus(' + o.id + ',\'' + escapeJsStr(o.status) + '\')"><i class="fas ' + sIcon + '" style="font-size:8px;margin-right:3px;"></i>' + escapeHtml(o.status.replace(/_/g, ' ')) + '</span></td>' +
+            '<td>' + (o.solicitante ? escapeHtml(o.solicitante) : '<span style="color:var(--text-muted)">-</span>') + '</td>' +
             '<td><div style="text-align:center;"><div style="font-size:11px;">' + dt + '</div>' + (tempoAberto ? '<div style="font-size:9px;color:' + (diff > 7 ? 'var(--red)' : diff > 3 ? 'var(--yellow)' : 'var(--text-muted)') + ';">' + tempoAberto + '</div>' : '') + '</div></td>' +
-            '<td onclick="event.stopPropagation()"><div style="display:flex;gap:4px;"><button onclick="showOrdemForm(' + o.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'ordem\',' + o.id + ',\'' + escapeAttr(o.titulo) + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
+            '<td onclick="event.stopPropagation()"><div style="display:flex;gap:4px;"><button onclick="showOrdemForm(' + o.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'ordem\',' + o.id + ',\'' + escapeJsStr(o.titulo) + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
     }).join('');
-    renderPagination('os-pagination', data.totalPages, data.number, loadOrdensServico);
 }
 
 async function quickToggleOsStatus(id, currentStatus) {
-    var nextStatus = { 'ABERTA': 'EM_ANALISE', 'EM_ANALISE': 'EM_EXECUCAO', 'EM_EXECUCAO': 'CONCLUIDA', 'CONCLUIDA': 'ABERTA', 'CANCELADA': 'ABERTA' };
+    var nextStatus = { 'ABERTA': 'EM_ANALISE', 'EM_ANALISE': 'EM_EXECUCAO', 'EM_EXECUCAO': 'CONCLUIDA' };
     var newStatus = nextStatus[currentStatus];
     if (!newStatus) return;
     try {
         var o = await apiFetch('/api/ordens-servico/' + id);
         await apiFetch('/api/ordens-servico/' + id, { method: 'PUT', body: JSON.stringify({ ...o, status: newStatus }) });
-        showToast('OS #' + id + ' alterada para ' + newStatus.replace('_', ' '));
+        showToast('OS #' + id + ' alterada para ' + newStatus.replace(/_/g, ' '));
         refreshAllData();
     } catch (e) { showToast(e.message, 'error'); }
 }
 
 async function showOrdemForm(id) {
     var o = { titulo: '', descricao: '', prioridade: 'MEDIA', status: 'ABERTA', solicitante: '', tecnicoResponsavel: '' };
-    if (id) { try { o = await apiFetch('/api/ordens-servico/' + id); } catch (e) { } }
-    if (allComputadores.length === 0) { try { allComputadores = await apiFetch('/api/computadores/paginado?page=0&size=100&status=&termo='); } catch (e) { } }
+    if (id) { try { o = await apiFetch('/api/ordens-servico/' + id); } catch (e) { showToast('Erro ao carregar OS: ' + e.message, 'error'); return; } }
+    try { allComputadores = await apiFetch('/api/computadores/paginado?page=0&size=100&status=&termo='); } catch (e) { allComputadores = { content: [] }; }
     var compList = allComputadores.content || allComputadores;
     var opts = compList.map(function(c) { return '<option value="' + c.id + '"' + (o.computadorId == c.id ? ' selected' : '') + '>' + escapeHtml(c.nomePc) + '</option>'; }).join('');
     var usuarios = [];
@@ -1432,7 +1661,7 @@ async function loadRelatorios() {
         var eqList = eqData.content || eqData;
         var r2 = await Promise.all([apiFetch('/api/computadores/estatisticas').catch(function() { return null; }), apiFetch('/api/manutencoes/estatisticas').catch(function() { return null; }), apiFetch('/api/ordens-servico/estatisticas').catch(function() { return null; })]);
         renderChartMarcas(eqList); renderChartManTipos(r2[1]); renderChartManutencoesMes(r2[1]); renderChartOSPrioridade(r2[2]); renderChartOSStatus(r2[2]); renderChartManStatus(r2[1]); renderStatsGerais(r2[0], r2[1], r2[2]);
-    } catch (e) { console.error('Erro relatorios:', e); }
+    } catch (e) { showToast('Erro ao carregar relatorios', 'error'); }
 }
 
 function renderChartMarcas(eq) {
@@ -1494,7 +1723,7 @@ function renderChartManStatus(man) {
 
 function exportRelatoriosCSV() {
     var rows = [];
-    rows.push(['BA ELETRICA - Relatorio de Estatisticas']);
+    rows.push(['Relatorio de Estatisticas - Inventario de TI']);
     rows.push(['Data: ' + new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR')]);
     rows.push([]);
     rows.push(['Categoria', 'Metrica', 'Valor']);
@@ -1512,8 +1741,17 @@ function exportRelatoriosCSV() {
             });
         });
     }
-    var blob = new Blob([rows.map(function(r) { return r.join(';'); }).join('\n')], { type: 'text/csv;charset=utf-8;' });
-    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'relatorios_ba_eletrica_' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
+    function csvEscape(val) {
+        var s = String(val || '');
+        if (s.indexOf(';') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+            return '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
+    }
+    var csv = rows.map(function(r) { return r.map(csvEscape).join(';'); }).join('\n');
+    var BOM = '\uFEFF';
+    var blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = url; a.download = 'relatorios_inventario_ti_' + new Date().toISOString().slice(0, 10) + '.csv'; a.click(); setTimeout(function() { URL.revokeObjectURL(url); }, 100);
     showToast('Relatorio exportado!');
 }
 
@@ -1552,6 +1790,7 @@ function renderStatsGerais(eq, man, os) {
 // ==========================================
 function toggleStatDetail(key) {
     if (_activeStatKey === key) { closeStatDetail(); return; }
+    closeStatDetail();
     _activeStatKey = key;
     document.querySelectorAll('.stat-card-item').forEach(function(el) { el.classList.toggle('active', el.dataset.key === key); });
     renderStatDetailPanel(key);
@@ -1577,7 +1816,7 @@ function renderStatDetailPanel(key) {
             var list = d.content || d || [];
             renderStatDetailHTML(container, title, icon, color, list.map(function(eq) {
                 var s = sm[eq.status] || { c: 'badge-inativo', i: 'fa-circle' };
-                var sl = eq.status.replace('MANUTENCAO_', 'Man. ').replace('_', ' ');
+                var sl = escapeHtml(eq.status.replace('MANUTENCAO_', 'Man. ').replace(/_/g, ' '));
                 return '<div class="stat-detail-item" onclick="showComputadorDetail(' + eq.id + ')"><div class="stat-detail-item-icon" style="background:var(--cyan-bg);color:var(--cyan);"><i class="fas fa-desktop"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(eq.nomePc) + '</div><div class="stat-detail-item-sub">' + escapeHtml(eq.modeloMarca) + ' - ' + escapeHtml(eq.usuarioDesignado || 'Sem usuario') + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + s.c + '"><i class="fas ' + s.i + '"></i> ' + sl + '</span></div></div>';
             }).join(''));
         });
@@ -1601,7 +1840,7 @@ function renderStatDetailPanel(key) {
             list.sort(function(a, b) { return a.id - b.id; });
             renderStatDetailHTML(container, title, icon, color, list.map(function(eq) {
                 var s = sm[eq.status] || { c: 'badge-inativo', i: 'fa-circle' };
-                var sl = eq.status.replace('MANUTENCAO_', 'Man. ').replace('_', ' ');
+                var sl = escapeHtml(eq.status.replace('MANUTENCAO_', 'Man. ').replace(/_/g, ' '));
                 return '<div class="stat-detail-item" onclick="showComputadorDetail(' + eq.id + ')"><div class="stat-detail-item-icon" style="background:var(--yellow-bg);color:var(--yellow);"><i class="fas fa-desktop"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(eq.nomePc) + '</div><div class="stat-detail-item-sub">' + escapeHtml(eq.modeloMarca) + ' - ' + escapeHtml(eq.usuarioDesignado || 'Sem usuario') + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + s.c + '"><i class="fas ' + s.i + '"></i> ' + sl + '</span></div></div>';
             }).join(''));
         });
@@ -1611,7 +1850,7 @@ function renderStatDetailPanel(key) {
             var list = d.content || d || [];
             renderStatDetailHTML(container, title, icon, color, list.map(function(m) {
                 var st = statusMap[m.status] || 'badge-pendente';
-                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--orange-bg);color:var(--orange);"><i class="fas fa-wrench"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(m.computadorNome || 'PC #' + m.computadorId) + '</div><div class="stat-detail-item-sub">' + escapeHtml(m.tipo) + ' - ' + escapeHtml(m.tecnicoResponsavel || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + st + '">' + m.status.replace(/_/g, ' ') + '</span></div></div>';
+                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--orange-bg);color:var(--orange);"><i class="fas fa-wrench"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(m.computadorNome || 'PC #' + m.computadorId) + '</div><div class="stat-detail-item-sub">' + escapeHtml(m.tipo) + ' - ' + escapeHtml(m.tecnicoResponsavel || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + st + '">' + escapeHtml(m.status.replace(/_/g, ' ')) + '</span></div></div>';
             }).join(''));
         });
     } else if (key === 'man-pendentes') {
@@ -1636,7 +1875,7 @@ function renderStatDetailPanel(key) {
             var list = d.content || d || [];
             renderStatDetailHTML(container, title, icon, color, list.map(function(o) {
                 var st = statusMap[o.status] || 'badge-pendente';
-                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--purple-bg);color:var(--purple);"><i class="fas fa-clipboard-list"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(o.titulo) + '</div><div class="stat-detail-item-sub">' + escapeHtml(o.computadorNome || 'Sem vinculo') + ' - ' + escapeHtml(o.solicitante || '') + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + st + '">' + o.status.replace(/_/g, ' ') + '</span></div></div>';
+                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--purple-bg);color:var(--purple);"><i class="fas fa-clipboard-list"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(o.titulo) + '</div><div class="stat-detail-item-sub">' + escapeHtml(o.computadorNome || 'Sem vinculo') + ' - ' + escapeHtml(o.solicitante || '') + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + st + '">' + escapeHtml(o.status.replace(/_/g, ' ')) + '</span></div></div>';
             }).join(''));
         });
     } else if (key === 'os-abertas') {
@@ -1646,7 +1885,7 @@ function renderStatDetailPanel(key) {
             results.forEach(function(d) { list = list.concat(d.content || d || []); });
             renderStatDetailHTML(container, title, icon, color, list.map(function(o) {
                 var st = statusMap[o.status] || 'badge-pendente';
-                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--red-bg);color:var(--red);"><i class="fas fa-folder-open"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(o.titulo) + '</div><div class="stat-detail-item-sub">' + escapeHtml(o.computadorNome || 'Sem vinculo') + ' - ' + escapeHtml(o.solicitante || '') + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + st + '">' + o.status.replace(/_/g, ' ') + '</span></div></div>';
+                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--red-bg);color:var(--red);"><i class="fas fa-folder-open"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(o.titulo) + '</div><div class="stat-detail-item-sub">' + escapeHtml(o.computadorNome || 'Sem vinculo') + ' - ' + escapeHtml(o.solicitante || '') + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + st + '">' + escapeHtml(o.status.replace(/_/g, ' ')) + '</span></div></div>';
             }).join(''));
         });
     } else if (key === 'os-execucao') {
@@ -1689,7 +1928,7 @@ async function loadDepartamentos() {
         renderDepartamentos(d);
     } catch (e) {
         var tb = document.querySelector('#departamentosTable tbody');
-        if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Erro ao carregar setores</td></tr>';
+        if (tb) tb.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Erro ao carregar setores</td></tr>';
     }
 }
 
@@ -1701,12 +1940,12 @@ function renderDepartamentos(deptos) {
         return;
     }
     tb.innerHTML = deptos.map(function(d) {
-        return '<tr style="cursor:pointer;" onclick="showSetorDetail(' + d.id + ',\'' + escapeAttr(d.nome) + '\',' + (d.totalComputadores || 0) + ')"><td style="font-weight:600;color:var(--text-primary);"><i class="fas fa-sitemap" style="color:var(--cyan);margin-right:8px;"></i>' + escapeHtml(d.nome) + '</td><td><span style="font-weight:700;color:var(--cyan);">' + (d.totalComputadores || 0) + '</span> <span style="color:var(--text-muted);font-size:11px;">computadores</span></td><td><button onclick="event.stopPropagation();confirmDelete(\'departamento\',' + d.id + ',\'' + escapeAttr(d.nome) + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></td></tr>';
+        return '<tr style="cursor:pointer;" onclick="showSetorDetail(' + d.id + ',\'' + escapeJsStr(d.nome) + '\',' + (d.totalComputadores || 0) + ')"><td style="font-weight:600;color:var(--text-primary);"><i class="fas fa-sitemap" style="color:var(--cyan);margin-right:8px;"></i>' + escapeHtml(d.nome) + '</td><td><span style="font-weight:700;color:var(--cyan);">' + (d.totalComputadores || 0) + '</span> <span style="color:var(--text-muted);font-size:11px;">computadores</span></td><td><button onclick="event.stopPropagation();confirmDelete(\'departamento\',' + d.id + ',\'' + escapeJsStr(d.nome) + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></td></tr>';
     }).join('');
 }
 
 function showSetorDetail(id, nome, count) {
-    openModal('Setor: ' + nome,
+    openModal('Setor: ' + escapeHtml(nome),
         '<div style="padding:10px;text-align:center;">' +
         '<div style="font-size:48px;font-weight:800;color:var(--cyan);margin-bottom:8px;">' + count + '</div>' +
         '<p style="color:var(--text-muted);font-size:13px;">computadores vinculados a este setor</p>' +
@@ -1719,17 +1958,17 @@ function showSetorDetail(id, nome, count) {
 
 async function showDeptoForm(id) {
     var d = { nome: '' };
-    if (id) { try { d = await apiFetch('/api/departamentos/' + id); } catch (e) { } }
+    if (id) { try { d = await apiFetch('/api/departamentos/' + id); } catch (e) { showToast('Erro ao carregar setor: ' + e.message, 'error'); return; } }
     openModal(id ? 'Editar Setor' : 'Novo Setor',
         '<form id="deptoForm"><div class="form-group"><label class="form-label">Nome *</label><input id="deptoNome" value="' + escapeAttr(d.nome) + '" required class="form-input" placeholder="Ex: TI, Financeiro, RH"></div></form>',
-        '<button onclick="closeModal()" class="btn btn-ghost btn-sm">Cancelar</button><button onclick="document.getElementById(\'deptoForm\').requestSubmit()" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> Criar</button>'
+        '<button onclick="closeModal()" class="btn btn-ghost btn-sm">Cancelar</button><button onclick="document.getElementById(\'deptoForm\').requestSubmit()" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> ' + (id ? 'Salvar' : 'Criar') + '</button>'
     );
     document.getElementById('deptoForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         var p = { nome: document.getElementById('deptoNome').value };
         try {
-            await apiFetch('/api/departamentos', { method: 'POST', body: JSON.stringify(p) });
-            showToast('Setor criado!');
+            if (id) { await apiFetch('/api/departamentos/' + id, { method: 'PUT', body: JSON.stringify(p) }); showToast('Setor atualizado!'); }
+            else { await apiFetch('/api/departamentos', { method: 'POST', body: JSON.stringify(p) }); showToast('Setor criado!'); }
             closeModal(); loadDepartamentos(); refreshAllData();
         } catch (e) { showToast(e.message, 'error'); }
     });
@@ -1757,7 +1996,7 @@ function renderLogs(data) {
     var items = data.content || data || [];
     if (items.length === 0) {
         tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Nenhum log encontrado</td></tr>';
-        document.getElementById('logs-pagination').innerHTML = '';
+        var lp = document.getElementById('logs-pagination'); if (lp) lp.innerHTML = '';
         return;
     }
     var acoes = { 'LOGIN': 'badge-em_andamento', 'CRIACAO': 'badge-concluida', 'ALTERACAO': 'badge-pendente', 'EXCLUSAO': 'badge-cancelada', 'EXPORTACAO': 'badge-em_andamento', 'IMPORTACAO': 'badge-concluida' };
@@ -1766,10 +2005,10 @@ function renderLogs(data) {
         var dt = l.dataAtividade ? new Date(l.dataAtividade).toLocaleDateString('pt-BR') + ' ' + new Date(l.dataAtividade).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
         var badge = acoes[l.acao] || 'badge-inativo';
         var eIcon = entityIcons[l.entidade] || 'fa-circle';
-        return '<tr><td class="font-medium">' + (l.id || '-') + '</td><td><span class="badge ' + badge + '">' + (l.acao || '-') + '</span></td><td><i class="fas ' + eIcon + '" style="margin-right:4px;color:var(--text-muted);"></i>' + escapeHtml(l.entidade || '-') + '</td><td>' + escapeHtml(l.usuario || '-') + '</td><td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeAttr(l.descricao || '') + '">' + escapeHtml(l.descricao || '-') + '</td><td style="white-space:nowrap;">' + dt + '</td></tr>';
+        return '<tr><td class="font-medium">' + (l.id || '-') + '</td><td><span class="badge ' + badge + '">' + escapeHtml(l.acao || '-') + '</span></td><td><i class="fas ' + eIcon + '" style="margin-right:4px;color:var(--text-muted);"></i>' + escapeHtml(l.entidade || '-') + '</td><td>' + escapeHtml(l.usuario || '-') + '</td><td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeAttr(l.descricao || '') + '">' + escapeHtml(l.descricao || '-') + '</td><td style="white-space:nowrap;">' + dt + '</td></tr>';
     }).join('');
     var totalPages = data.totalPages || 1;
-    renderPagination('logs-pagination', totalPages, data.number || 0, loadLogs);
+    renderPagination('logs-pagination', totalPages, data.page !== undefined ? data.page : (data.number || 0), loadLogs);
 }
 
 // ==========================================
@@ -1782,19 +2021,22 @@ async function loadUsuarios() {
         if (s) { var sl = s.toLowerCase(); d = (d || []).filter(function(x) { return (x.nomeCompleto || '').toLowerCase().indexOf(sl) !== -1 || (x.username || '').toLowerCase().indexOf(sl) !== -1 || (x.email || '').toLowerCase().indexOf(sl) !== -1; }); }
         renderUsuarios(d);
     } catch (e) {
-        document.querySelector('#usuariosTable tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Erro ao carregar</td></tr>';
+        var tb = document.querySelector('#usuariosTable tbody');
+        if (tb) tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Erro ao carregar</td></tr>';
     }
 }
 
 function renderUsuarios(usuarios) {
-    document.querySelector('#usuariosTable tbody').innerHTML = usuarios.map(function(u) {
-        return '<tr><td class="font-medium">' + u.id + '</td><td>' + escapeHtml(u.nomeCompleto) + '</td><td class="font-mono">' + escapeHtml(u.username) + '</td><td>' + escapeHtml(u.email || '-') + '</td><td><span class="badge badge-' + u.perfil.toLowerCase() + '">' + u.perfil + '</span></td><td><span class="badge badge-' + (u.ativo ? 'ativo' : 'cancelada') + '">' + (u.ativo ? 'Ativo' : 'Inativo') + '</span></td><td><div style="display:flex;gap:4px;"><button onclick="showUsuarioForm(' + u.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'usuario\',' + u.id + ',\'' + escapeAttr(u.nomeCompleto) + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
+    var tb = document.querySelector('#usuariosTable tbody');
+    if (!tb) return;
+    tb.innerHTML = usuarios.map(function(u) {
+        return '<tr><td class="font-medium">' + u.id + '</td><td>' + escapeHtml(u.nomeCompleto) + '</td><td class="font-mono">' + escapeHtml(u.username) + '</td><td>' + escapeHtml(u.email || '-') + '</td><td><span class="badge badge-' + escapeHtml(u.perfil.toLowerCase()) + '">' + escapeHtml(u.perfil) + '</span></td><td><span class="badge badge-' + (u.ativo ? 'ativo' : 'cancelada') + '">' + (u.ativo ? 'Ativo' : 'Inativo') + '</span></td><td><div style="display:flex;gap:4px;"><button onclick="showUsuarioForm(' + u.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'usuario\',' + u.id + ',\'' + escapeJsStr(u.nomeCompleto) + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
     }).join('');
 }
 
 async function showUsuarioForm(id) {
     var u = { username: '', nomeCompleto: '', email: '', perfil: 'USUARIO', senha: '' };
-    if (id) { try { u = await apiFetch('/api/usuarios/' + id); } catch (e) { } }
+    if (id) { try { u = await apiFetch('/api/usuarios/' + id); } catch (e) { showToast('Erro ao carregar usuario: ' + e.message, 'error'); return; } }
     openModal(id ? 'Editar Usuario' : 'Novo Usuario',
         '<form id="userForm"><div class="form-group"><label class="form-label">Nome Completo *</label><input id="userNome" value="' + escapeAttr(u.nomeCompleto) + '" required class="form-input"></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;"><div class="form-group"><label class="form-label">Username *</label><input id="userUsername" value="' + escapeAttr(u.username) + '" ' + (id ? 'disabled' : '') + ' required class="form-input"></div>' +
@@ -1825,24 +2067,27 @@ async function showUsuarioForm(id) {
 // MODAL, CONFIRM, TOAST
 // ==========================================
 function openModal(title, body, footer) {
-    document.getElementById('modal-title').innerHTML = '<i class="fas fa-desktop"></i> ' + title;
-    document.getElementById('modal-body').innerHTML = body;
-    document.getElementById('modal-footer').innerHTML = footer || '';
-    document.getElementById('modal-overlay').classList.add('active');
+    closeKpiDetail(); closeStatDetail(); closeManKpiDetail(); closeOsKpiDetail();
+    var mt = document.getElementById('modal-title'); if (mt) mt.innerHTML = escapeHtml(title);
+    var mb = document.getElementById('modal-body'); if (mb) mb.innerHTML = body;
+    var mf = document.getElementById('modal-footer'); if (mf) mf.innerHTML = footer || '';
+    var mo = document.getElementById('modal-overlay'); if (mo) mo.classList.add('active');
 }
 
-function closeModal() { document.getElementById('modal-overlay').classList.remove('active'); }
+function closeModal() { var mo = document.getElementById('modal-overlay'); if (mo) mo.classList.remove('active'); }
 
 function confirmDelete(type, id, name) {
-    document.getElementById('confirm-text').textContent = 'Tem certeza que deseja excluir "' + name + '"?';
-    document.getElementById('confirm-overlay').classList.add('active');
-    document.getElementById('confirm-yes-btn').onclick = async function() {
+    var ct = document.getElementById('confirm-text'); if (ct) ct.textContent = 'Tem certeza que deseja excluir "' + name + '"?';
+    var co = document.getElementById('confirm-overlay'); if (co) co.classList.add('active');
+    var cy = document.getElementById('confirm-yes-btn');
+    if (cy) cy.onclick = async function() {
         try {
             if (type === 'computador') await apiFetch('/api/computadores/' + id, { method: 'DELETE' });
             else if (type === 'manutencao') await apiFetch('/api/manutencoes/' + id, { method: 'DELETE' });
             else if (type === 'ordem') await apiFetch('/api/ordens-servico/' + id, { method: 'DELETE' });
             else if (type === 'usuario') await apiFetch('/api/usuarios/' + id, { method: 'DELETE' });
             else if (type === 'departamento') await apiFetch('/api/departamentos/' + id, { method: 'DELETE' });
+            else if (type === 'software') await apiFetch('/api/software-licencas/' + id, { method: 'DELETE' });
             showToast('Excluido com sucesso!');
             closeConfirm();
             refreshAllData();
@@ -1850,11 +2095,13 @@ function confirmDelete(type, id, name) {
     };
 }
 
-function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('active'); }
+function closeConfirm() { var co = document.getElementById('confirm-overlay'); if (co) co.classList.remove('active'); }
 
 function showToast(message, type) {
     type = type || 'info';
-    var c = document.getElementById('toast-container'), t = document.createElement('div');
+    var c = document.getElementById('toast-container');
+    if (!c) return;
+    var t = document.createElement('div');
     t.className = 'toast toast-' + type;
     var icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', info: 'fa-info-circle', warning: 'fa-exclamation-triangle' };
     t.innerHTML = '<i class="fas ' + (icons[type] || icons.info) + '"></i><span>' + escapeHtml(message) + '</span>';
@@ -1867,7 +2114,7 @@ function showToast(message, type) {
 // ==========================================
 function renderPagination(containerId, totalPages, curPage, loadFn) {
     var c = document.getElementById(containerId);
-    if (!c || totalPages <= 1) { if (c) c.innerHTML = ''; return; }
+    if (!c || !totalPages || totalPages <= 1) { if (c) c.innerHTML = ''; return; }
     var html = '<button class="pagination-btn" data-page="' + (curPage - 1) + '" ' + (curPage === 0 ? 'disabled' : '') + '><i class="fas fa-chevron-left"></i></button>';
     for (var i = 0; i < totalPages; i++) { html += '<button class="pagination-btn ' + (i === curPage ? 'active' : '') + '" data-page="' + i + '">' + (i + 1) + '</button>'; }
     html += '<button class="pagination-btn" data-page="' + (curPage + 1) + '" ' + (curPage >= totalPages - 1 ? 'disabled' : '') + '><i class="fas fa-chevron-right"></i></button>';
@@ -1880,8 +2127,9 @@ function renderPagination(containerId, totalPages, curPage, loadFn) {
 // ==========================================
 // UTILITIES
 // ==========================================
-function escapeHtml(t) { if (!t) return ''; var m = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }; return String(t).replace(/[&<>"']/g, function(c) { return m[c]; }); }
-function escapeAttr(t) { if (!t) return ''; return String(t).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+function escapeHtml(t) { if (t === null || t === undefined) return ''; var m = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }; return String(t).replace(/[&<>"']/g, function(c) { return m[c]; }); }
+function escapeAttr(t) { if (t === null || t === undefined) return ''; return String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+function escapeJsStr(t) { if (t === null || t === undefined) return ''; return String(t).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/</g, '\\x3c').replace(/>/g, '\\x3e').replace(/\n/g, '\\n').replace(/\r/g, '\\r'); }
 function formatNumber(num) { return Number(num).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function formatFileSize(bytes) { if (bytes < 1024) return bytes + ' B'; if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB'; return (bytes / (1024 * 1024)).toFixed(1) + ' MB'; }
 function debounce(fn, delay) { var t; return function() { var a = arguments, c = this; clearTimeout(t); t = setTimeout(function() { fn.apply(c, a); }, delay); }; }
@@ -1892,7 +2140,7 @@ function getComputerPhoto(eq, size) {
     var brand = (eq && eq.modeloMarca) ? eq.modeloMarca.split(' ')[0].toUpperCase() : 'PC';
     var svg = generatePlaceholderSVG(eq ? eq.modeloMarca : 'PC', w, h);
     if (eq && eq.fotoUrl && eq.fotoUrl.trim() !== '') {
-        return '<div class="pc-photo-container"><img src="' + escapeHtml(eq.fotoUrl) + '" alt="' + escapeHtml(eq.nomePc) + '" style="width:100%;height:100%;object-fit:contain;" onload="this.style.display=\'block\';var fb=this.nextElementSibling;if(fb)fb.style.display=\'none\';" onerror="this.style.display=\'none\';var fb=this.nextElementSibling;if(fb)fb.style.display=\'flex\';"><div class="pc-photo-fallback" style="display:flex;width:100%;height:100%;align-items:center;justify-content:center;">' + svg + '</div></div>';
+        return '<div class="pc-photo-container" style="cursor:zoom-in;" onclick="openLightbox(\'' + escapeJsStr(eq.fotoUrl) + '\')"><img src="' + escapeHtml(eq.fotoUrl) + '" alt="' + escapeHtml(eq.nomePc) + '" style="width:100%;height:100%;object-fit:contain;pointer-events:none;" onload="this.style.display=\'block\';var fb=this.nextElementSibling;if(fb)fb.style.display=\'none\';" onerror="this.style.display=\'none\';var fb=this.nextElementSibling;if(fb)fb.style.display=\'flex\';"><div class="pc-photo-fallback" style="display:flex;width:100%;height:100%;align-items:center;justify-content:center;">' + svg + '</div></div>';
     }
     return svg;
 }
@@ -1942,10 +2190,10 @@ function showManual() {
 // ==========================================
 function showSystemInfo() {
     apiFetch('/actuator/health').then(function(data) {
-        var status = (data && data.status) ? data.status : 'UNKNOWN';
+        var status = (data && data.status) ? escapeHtml(data.status) : 'UNKNOWN';
         var dbStatus = 'H2 (embedded)';
         if (data && data.components && data.components.db) {
-            dbStatus = data.components.db.details ? (data.components.db.details.database || dbStatus) : dbStatus;
+            dbStatus = data.components.db.details ? escapeHtml(data.components.db.details.database || dbStatus) : dbStatus;
         }
         openModal('Status do Sistema',
             '<div style="padding:10px;">' +
@@ -1970,9 +2218,12 @@ function showSystemInfo() {
 }
 
 function clearSystemCache() {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('authUser');
-    localStorage.removeItem('currentTab');
+    try {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('userPerfil');
+        localStorage.removeItem('currentTab');
+    } catch(e) { /* ignore */ }
     showToast('Cache limpo com sucesso!', 'success');
     setTimeout(function() { location.reload(); }, 800);
 }
@@ -1999,7 +2250,23 @@ function showBackupInfo() {
 // CSV EXPORT/IMPORT
 // ==========================================
 function exportComputadoresCSV() {
-    apiFetch('/api/computadores/export/csv').then(function(r) { showToast(r.mensagem || 'Exportacao concluida!', 'success'); }).catch(function(e) { showToast(e.message, 'error'); });
+    fetch(API + '/api/computadores/export/csv', { method: 'GET', headers: { 'Authorization': 'Bearer ' + getToken() } })
+        .then(function(r) {
+            if (!r.ok) throw new Error('Erro na exportacao');
+            return r.blob();
+        })
+        .then(function(blob) {
+            var url = window.URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'computadores_export.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            showToast('CSV exportado com sucesso!', 'success');
+        })
+        .catch(function(e) { showToast(e.message, 'error'); });
 }
 
 function importComputadoresCSV(event) {
@@ -2008,7 +2275,7 @@ function importComputadoresCSV(event) {
     var fd = new FormData();
     fd.append('file', file);
     fetch(API + '/api/computadores/import/csv', { method: 'POST', headers: { 'Authorization': 'Bearer ' + getToken() }, body: fd })
-        .then(function(r) { return r.json(); })
+        .then(function(r) { if (!r.ok) throw new Error('Erro na importacao'); return r.json(); })
         .then(function(d) { showToast('Importados: ' + (d.importados || 0) + ' | Ignorados: ' + (d.ignorados || 0), 'success'); loadComputadores(0); })
         .catch(function(e) { showToast('Erro na importacao', 'error'); });
     event.target.value = '';
@@ -2031,16 +2298,104 @@ function initFilters() {
     var ub = document.getElementById('user-busca-input'); if (ub) ub.addEventListener('input', debounce(function() { loadUsuarios(); }, 400));
     var lu = document.getElementById('log-busca-usuario'); if (lu) lu.addEventListener('input', debounce(function() { loadLogs(0); }, 400));
     var le = document.getElementById('log-filtro-entidade'); if (le) le.addEventListener('change', function() { loadLogs(0); });
+    var sb = document.getElementById('sw-busca-input'); if (sb) sb.addEventListener('input', debounce(function() { loadSoftwareLicencas(0); }, 400));
+}
+
+// ==========================================
+// SOFTWARE/LICENCAS
+// ==========================================
+async function loadSoftwareLicencas(page) {
+    if (page !== undefined) currentPage.software = page;
+    var t = (document.getElementById('sw-busca-input') || {}).value || '';
+    try {
+        var d = await apiFetch('/api/software-licencas?page=' + (currentPage.software || 0) + '&size=10&termo=' + encodeURIComponent(t));
+        renderSoftwareLicencas(d);
+    } catch (e) {
+        var tb = document.querySelector('#softwareTable tbody');
+        if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Erro ao carregar licencas</td></tr>';
+    }
+}
+
+function renderSoftwareLicencas(data) {
+    var tb = document.querySelector('#softwareTable tbody');
+    if (!tb) return;
+    var items = data.content || data || [];
+    if (items.length === 0) {
+        tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px;"><i class="fas fa-inbox"></i> Nenhuma licenca encontrada</td></tr>';
+        var sp = document.getElementById('software-pagination'); if (sp) sp.innerHTML = '';
+        return;
+    }
+    tb.innerHTML = items.map(function(s) {
+        var exp = s.dataExpiracao ? new Date(s.dataExpiracao + 'T00:00:00').toLocaleDateString('pt-BR') : '-';
+        var expClass = '';
+        if (s.dataExpiracao) {
+            var d = new Date(s.dataExpiracao + 'T00:00:00');
+            var diff = (d - new Date()) / (1000*60*60*24);
+            if (diff < 0) expClass = 'color:var(--red);';
+            else if (diff < 30) expClass = 'color:var(--yellow);';
+        }
+        var disp = (s.quantidadeTotal || 0) - (s.quantidadeUtilizada || 0);
+        var badge = disp <= 0 ? 'badge-cancelada' : (disp <= 2 ? 'badge-pendente' : 'badge-concluida');
+        return '<tr>' +
+            '<td style="font-weight:600;color:var(--text-primary);"><i class="fas fa-key" style="color:var(--purple);margin-right:8px;"></i>' + escapeHtml(s.nomeSoftware) + '</td>' +
+            '<td>' + escapeHtml(s.fabricante || '-') + '</td>' +
+            '<td><span class="badge badge-em_andamento">' + escapeHtml(s.tipoLicenca || '-') + '</span></td>' +
+            '<td><span class="badge ' + badge + '">' + (s.quantidadeUtilizada || 0) + '/' + (s.quantidadeTotal || 0) + '</span></td>' +
+            '<td style="' + expClass + '">' + exp + '</td>' +
+            '<td><button onclick="showSoftwareLicencaForm(' + s.id + ')" class="action-btn action-btn-edit"><i class="fas fa-edit"></i></button> ' +
+            '<button onclick="confirmDelete(\'software\',' + s.id + ',\'' + escapeJsStr(s.nomeSoftware) + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></td></tr>';
+    }).join('');
+    renderPagination('software-pagination', data.totalPages || 1, data.page !== undefined ? data.page : (data.number || 0), loadSoftwareLicencas);
+}
+
+async function showSoftwareLicencaForm(id) {
+    var s = { nomeSoftware: '', fabricante: '', chaveLicenca: '', tipoLicenca: 'PRO', quantidadeTotal: 1, quantidadeUtilizada: 0, dataAquisicao: '', dataExpiracao: '', observacoes: '' };
+    if (id) { try { s = await apiFetch('/api/software-licencas/' + id); } catch (e) { showToast('Erro ao carregar licenca: ' + e.message, 'error'); return; } }
+    openModal(id ? 'Editar Licenca' : 'Nova Licenca',
+        '<form id="swForm">' +
+        '<div class="form-row"><div class="form-group"><label class="form-label">Software *</label><input id="swNome" value="' + escapeAttr(s.nomeSoftware || '') + '" required class="form-input" placeholder="Ex: Microsoft Office"></div>' +
+        '<div class="form-group"><label class="form-label">Fabricante</label><input id="swFab" value="' + escapeAttr(s.fabricante || '') + '" class="form-input" placeholder="Ex: Microsoft"></div></div>' +
+        '<div class="form-group"><label class="form-label">Chave de Licenca</label><input id="swChave" value="' + escapeAttr(s.chaveLicenca || '') + '" class="form-input" placeholder="XXXXX-XXXXX-XXXXX"></div>' +
+        '<div class="form-group"><label class="form-label">Tipo</label><select id="swTipo" class="form-input"><option value="PRO"' + (s.tipoLicenca === 'PRO' ? ' selected' : '') + '>PRO</option><option value="ENTERPRISE"' + (s.tipoLicenca === 'ENTERPRISE' ? ' selected' : '') + '>ENTERPRISE</option><option value="HOME"' + (s.tipoLicenca === 'HOME' ? ' selected' : '') + '>HOME</option><option value="EDUCACIONAL"' + (s.tipoLicenca === 'EDUCACIONAL' ? ' selected' : '') + '>EDUCACIONAL</option><option value="OEM"' + (s.tipoLicenca === 'OEM' ? ' selected' : '') + '>OEM</option><option value="VOLUME"' + (s.tipoLicenca === 'VOLUME' ? ' selected' : '') + '>VOLUME</option><option value="OUTRO"' + (s.tipoLicenca === 'OUTRO' ? ' selected' : '') + '>OUTRO</option></select></div>' +
+        '<div class="form-row"><div class="form-group"><label class="form-label">Qtde Total</label><input id="swTotal" type="number" min="0" value="' + (s.quantidadeTotal || 1) + '" class="form-input"></div>' +
+        '<div class="form-group"><label class="form-label">Qtde Utilizada</label><input id="swUtil" type="number" min="0" value="' + (s.quantidadeUtilizada || 0) + '" class="form-input"></div></div>' +
+        '<div class="form-row"><div class="form-group"><label class="form-label">Data Aquisicao</label><input id="swAq" type="date" value="' + (s.dataAquisicao || '') + '" class="form-input"></div>' +
+        '<div class="form-group"><label class="form-label">Data Expiracao</label><input id="swExp" type="date" value="' + (s.dataExpiracao || '') + '" class="form-input"></div></div>' +
+        '<div class="form-group"><label class="form-label">Observacoes</label><textarea id="swObs" class="form-input" rows="2" placeholder="Observacoes...">' + escapeHtml(s.observacoes || '') + '</textarea></div>' +
+        '</form>',
+        '<button onclick="closeModal()" class="btn btn-ghost btn-sm">Cancelar</button><button onclick="document.getElementById(\'swForm\').requestSubmit()" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> ' + (id ? 'Salvar' : 'Criar') + '</button>'
+    );
+    document.getElementById('swForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var p = {
+            nomeSoftware: document.getElementById('swNome').value,
+            fabricante: document.getElementById('swFab').value || null,
+            chaveLicenca: document.getElementById('swChave').value || null,
+            tipoLicenca: document.getElementById('swTipo').value,
+            quantidadeTotal: parseInt(document.getElementById('swTotal').value) || 1,
+            quantidadeUtilizada: parseInt(document.getElementById('swUtil').value) || 0,
+            dataAquisicao: document.getElementById('swAq').value || null,
+            dataExpiracao: document.getElementById('swExp').value || null,
+            observacoes: document.getElementById('swObs').value || null
+        };
+        try {
+            if (id) await apiFetch('/api/software-licencas/' + id, { method: 'PUT', body: JSON.stringify(p) });
+            else await apiFetch('/api/software-licencas', { method: 'POST', body: JSON.stringify(p) });
+            showToast(id ? 'Licenca atualizada!' : 'Licenca criada!');
+            closeModal(); loadSoftwareLicencas(currentPage.software || 0);
+        } catch (e) { showToast(e.message, 'error'); }
+    });
 }
 
 // GLOBAL REFRESH HELPER
-function refreshCurrentSection() {
+function refreshCurrentSection(tipo) {
     switch (_currentSection) {
         case 'painel': loadDashboard(); break;
         case 'computadores': loadComputadores(currentPage.computadores); break;
         case 'manutencoes': loadManutencoes(currentPage.manutencoes); break;
         case 'ordens-servico': loadOrdensServico(currentPage.ordensServico); break;
         case 'departamentos': loadDepartamentos(); break;
+        case 'software-licencas': loadSoftwareLicencas(currentPage.software || 0); break;
         case 'logs': loadLogs(currentPage.logs); break;
         case 'relatorios': loadRelatorios(); break;
         case 'usuarios': loadUsuarios(); break;
@@ -2049,24 +2404,60 @@ function refreshCurrentSection() {
 }
 
 function refreshAllData() {
-    loadDashboard().catch(function() {});
-    loadComputadores(currentPage.computadores).catch(function() {});
-    loadManutencoes(currentPage.manutencoes).catch(function() {});
-    loadOrdensServico(currentPage.ordensServico).catch(function() {});
-    loadDepartamentos().catch(function() {});
-    loadUsuarios().catch(function() {});
-    loadLogs(currentPage.logs).catch(function() {});
-    closeManKpiDetail();
-    closeOsKpiDetail();
+    refreshCurrentSection();
+    closeKpiDetail(); closeStatDetail(); closeManKpiDetail(); closeOsKpiDetail();
+}
+
+// ==========================================
+// LIGHTBOX - Click to expand images
+// ==========================================
+function openLightbox(src) {
+    if (!src || src.indexOf('data:image/svg+xml') === 0) return;
+    var lb = document.getElementById('lightbox-overlay');
+    var img = document.getElementById('lightbox-img');
+    if (lb && img) { img.src = src; lb.classList.add('active'); }
+}
+function closeLightbox() {
+    var lb = document.getElementById('lightbox-overlay');
+    if (lb) lb.classList.remove('active');
+}
+
+// ==========================================
+// PROFESSIONAL PDF REPORT GENERATION
+// ==========================================
+function generateRelatorioGeralPDF() {
+    showToast('Gerando relatorio...', 'info');
+    fetch(API + '/api/reports/pdf/relatorio-geral', {
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + getToken() }
+    }).then(function(r) {
+        if (!r.ok) throw new Error('Erro ao gerar PDF (' + r.status + ')');
+        return r.blob();
+    }).then(function(blob) {
+        var url = window.URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'Relatorio_Geral_Inventario_TI_' + new Date().toISOString().slice(0, 10) + '.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function() { window.URL.revokeObjectURL(url); }, 5000);
+        showToast('Relatorio PDF gerado com sucesso!', 'success');
+    }).catch(function(err) {
+        console.error('[PDF] Erro:', err);
+        showToast('Erro ao gerar PDF: ' + err.message, 'error');
+    });
 }
 
 // OVERLAY CLICK
 document.getElementById('modal-overlay')?.addEventListener('click', function(e) { if (e.target === e.currentTarget) closeModal(); });
 document.getElementById('confirm-overlay')?.addEventListener('click', function(e) { if (e.target === e.currentTarget) closeConfirm(); });
+document.getElementById('lightbox-overlay')?.addEventListener('click', function(e) { if (e.target === e.currentTarget || e.target.classList.contains('lightbox-close')) closeLightbox(); });
 
 // ESCAPE KEY
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
+        if (document.getElementById('lightbox-overlay')?.classList.contains('active')) { closeLightbox(); return; }
         if (_activeStatKey) closeStatDetail();
         if (_activeKpiKey) closeKpiDetail();
         if (_activeManKpiKey) closeManKpiDetail();
@@ -2077,4 +2468,4 @@ document.addEventListener('keydown', function(e) {
 });
 
 // INIT
-document.addEventListener('DOMContentLoaded', function() { checkAuth(); initFilters(); showSection('painel'); });
+document.addEventListener('DOMContentLoaded', function() { checkAuth(); initFilters(); var saved = 'painel'; try { saved = localStorage.getItem('currentSection') || 'painel'; } catch (e) {} showSection(saved); });

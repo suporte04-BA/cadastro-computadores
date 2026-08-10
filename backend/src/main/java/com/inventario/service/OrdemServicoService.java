@@ -21,6 +21,7 @@ public class OrdemServicoService {
     private final OrdemServicoRepository repository;
     private final ComputadorRepository computadorRepository;
 
+    @Transactional(readOnly = true)
     public PageResponse<OrdemServicoDTO> listarPaginado(int page, int size, String status, String prioridade, Long computadorId) {
         StatusOrdemServico statusEnum = null;
         PrioridadeOrdemServico prioridadeEnum = null;
@@ -54,6 +55,7 @@ public class OrdemServicoService {
             .build();
     }
 
+    @Transactional(readOnly = true)
     public OrdemServicoDTO buscarPorId(Long id) {
         OrdemServico o = repository.findById(id)
             .orElseThrow(() -> new RecursoNaoEncontradoException("Ordem de Servico", id));
@@ -69,9 +71,15 @@ public class OrdemServicoService {
         o.setTecnicoResponsavel(dto.getTecnicoResponsavel());
         o.setDataPrevisao(dto.getDataPrevisao());
         o.setFotoUrl(dto.getFotoUrl());
+        o.setSolucao(dto.getSolucao());
 
         if (dto.getPrioridade() != null) {
-            o.setPrioridade(PrioridadeOrdemServico.valueOf(dto.getPrioridade()));
+            try { o.setPrioridade(PrioridadeOrdemServico.valueOf(dto.getPrioridade())); }
+            catch (IllegalArgumentException e) { throw new RegraNegocioException("Prioridade invalida. Valores aceitos: BAIXA, MEDIA, ALTA, CRITICA"); }
+        }
+        if (dto.getStatus() != null) {
+            try { o.setStatus(StatusOrdemServico.valueOf(dto.getStatus())); }
+            catch (IllegalArgumentException e) { throw new RegraNegocioException("Status invalido. Valores aceitos: ABERTA, EM_ANALISE, EM_EXECUCAO, CONCLUIDA, CANCELADA"); }
         }
         if (dto.getComputadorId() != null) {
             Computador c = computadorRepository.findById(dto.getComputadorId())
@@ -96,14 +104,24 @@ public class OrdemServicoService {
         if (dto.getSolucao() != null) o.setSolucao(dto.getSolucao());
 
         if (dto.getStatus() != null) {
-            StatusOrdemServico newStatus = StatusOrdemServico.valueOf(dto.getStatus());
+            StatusOrdemServico newStatus;
+            try { newStatus = StatusOrdemServico.valueOf(dto.getStatus()); }
+            catch (IllegalArgumentException e) { throw new RegraNegocioException("Status invalido. Valores aceitos: ABERTA, EM_ANALISE, EM_EXECUCAO, CONCLUIDA, CANCELADA"); }
             o.setStatus(newStatus);
             if (newStatus == StatusOrdemServico.CONCLUIDA) {
                 o.setDataConclusao(LocalDateTime.now());
             }
         }
         if (dto.getPrioridade() != null) {
-            o.setPrioridade(PrioridadeOrdemServico.valueOf(dto.getPrioridade()));
+            try { o.setPrioridade(PrioridadeOrdemServico.valueOf(dto.getPrioridade())); }
+            catch (IllegalArgumentException e) { throw new RegraNegocioException("Prioridade invalida. Valores aceitos: BAIXA, MEDIA, ALTA, CRITICA"); }
+        }
+        if (dto.getComputadorId() != null) {
+            if (o.getComputador() == null || !dto.getComputadorId().equals(o.getComputador().getId())) {
+                Computador c = computadorRepository.findById(dto.getComputadorId())
+                    .orElseThrow(() -> new RecursoNaoEncontradoException("Computador", dto.getComputadorId()));
+                o.setComputador(c);
+            }
         }
 
         return toDTO(repository.save(o));
@@ -117,6 +135,7 @@ public class OrdemServicoService {
         repository.deleteById(id);
     }
 
+    @Transactional(readOnly = true)
     public Map<String, Object> estatisticas() {
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("total", repository.count());
@@ -141,8 +160,8 @@ public class OrdemServicoService {
             .descricao(o.getDescricao())
             .computadorId(o.getComputador() != null ? o.getComputador().getId() : null)
             .computadorNome(o.getComputador() != null ? o.getComputador().getNomePc() : null)
-            .prioridade(o.getPrioridade().name())
-            .status(o.getStatus().name())
+            .prioridade(o.getPrioridade() != null ? o.getPrioridade().name() : null)
+            .status(o.getStatus() != null ? o.getStatus().name() : null)
             .solicitante(o.getSolicitante())
             .tecnicoResponsavel(o.getTecnicoResponsavel())
             .dataAbertura(o.getDataAbertura())

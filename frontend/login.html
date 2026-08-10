@@ -400,6 +400,13 @@
                     </div>
                 </div>
 
+                <div class="form-row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+                    <label class="remember-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#5a6a8a;">
+                        <input type="checkbox" id="rememberMe" class="remember-checkbox" style="width:16px;height:16px;accent-color:#00e5c7;cursor:pointer;">
+                        Lembrar login
+                    </label>
+                </div>
+
                 <button type="submit" class="btn-login" id="loginBtn">
                     <span>
                         <span class="btn-text">Entrar</span>
@@ -416,6 +423,7 @@
     </div>
 
     <script>
+        if (localStorage.getItem('authToken')) { window.location.href = 'index.html'; }
         const loginForm = document.getElementById('loginForm');
         const usernameInput = document.getElementById('username');
         const senhaInput = document.getElementById('senha');
@@ -423,6 +431,10 @@
         const errorMessage = document.getElementById('errorMessage');
         const errorText = document.getElementById('errorText');
         const passwordToggle = document.getElementById('passwordToggle');
+        const rememberMe = document.getElementById('rememberMe');
+
+        var savedUser = localStorage.getItem('rememberedUser');
+        if (savedUser) { usernameInput.value = savedUser; rememberMe.checked = true; senhaInput.focus(); }
 
         passwordToggle.addEventListener('click', () => {
             const isPassword = senhaInput.type === 'password';
@@ -439,7 +451,7 @@
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = usernameInput.value.trim();
-            const senha = senhaInput.value.trim();
+            const senha = senhaInput.value;
             if (!username || !senha) { showError('Preencha todos os campos.'); return; }
             setLoading(true);
             try {
@@ -448,7 +460,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, senha })
                 });
-                const data = await response.json();
+                let data;
+                try { data = await response.json(); } catch(e) { showError('Resposta invalida do servidor.'); setLoading(false); return; }
                 if (!response.ok) {
                     showError(data.erro || data.message || 'Credenciais invalidas.');
                     setLoading(false);
@@ -457,8 +470,10 @@
                 localStorage.setItem('authToken', data.token);
                 localStorage.setItem('userName', data.nomeCompleto || data.username);
                 localStorage.setItem('userPerfil', data.perfil);
+                if (rememberMe.checked) { localStorage.setItem('rememberedUser', username); }
+                else { localStorage.removeItem('rememberedUser'); }
                 loginBtn.innerHTML = '<span><i class="fas fa-check"></i> <span class="btn-text">Sucesso!</span></span>';
-                setTimeout(() => { window.location.href = '/index.html'; }, 600);
+                setTimeout(function() { window.location.href = 'index.html'; }, 600);
             } catch (err) {
                 showError('Erro de conexao. Verifique sua rede.');
                 setLoading(false);

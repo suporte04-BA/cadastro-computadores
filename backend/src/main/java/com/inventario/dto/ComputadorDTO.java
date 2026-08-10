@@ -3,6 +3,7 @@ package com.inventario.dto;
 import jakarta.validation.constraints.*;
 import lombok.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class ComputadorDTO {
@@ -62,4 +63,8 @@ public class ComputadorDTO {
     private String softwareInstalado;
 
     private String notas;
+
+    private LocalDateTime proximaManutencao;
+
+    private LocalDateTime dataCadastro;
 }

@@ -77,22 +77,22 @@ public class DataInitializer implements CommandLineRunner {
             if (computadores.size() >= 5) {
                 createManutencao(computadores.get(0), TipoManutencao.PREVENTIVA, StatusManutencao.CONCLUIDA,
                     "Troca de pasta termica e limpeza geral do equipamento",
-                    "Carlos Pereira", 150.00, "Pasta termica Artic MX-5",
+                    "Carlos Pereira", "Pasta termica Artic MX-5",
                     "Equipamento operando normalmente");
                 createManutencao(computadores.get(1), TipoManutencao.CORRETIVA, StatusManutencao.EM_ANDAMENTO,
                     "Substituicao de HD danificado por SSD de 240GB",
-                    "Pedro Costa", 320.00, "SSD Kingston A400 240GB",
+                    "Pedro Costa", "SSD Kingston A400 240GB",
                     "Backup realizado. Aguardando instalacao do SO");
                 createManutencao(computadores.get(2), TipoManutencao.PREDITIVA, StatusManutencao.PENDENTE,
                     "Atualizacao de firmware e verificacao de saude do disco",
-                    "Carlos Pereira", null, "", "");
+                    "Carlos Pereira", "", "");
                 createManutencao(computadores.get(3), TipoManutencao.EMERGENCIAL, StatusManutencao.CONCLUIDA,
                     "Remocao de malware e formatacao completa do sistema",
-                    "Pedro Costa", 0.0, "Nenhuma",
+                    "Pedro Costa", "Nenhuma",
                     "Sistema reinstalado com Windows 11 Pro");
                 createManutencao(computadores.get(4), TipoManutencao.PREVENTIVA, StatusManutencao.PENDENTE,
                     "Limpeza preventiva trimestral e verificacao de drivers",
-                    "Carlos Pereira", 80.00, "Filtro de po",
+                    "Carlos Pereira", "Filtro de po",
                     "Agendar para horario comercial");
                 log.info("5 manutencoes criadas com sucesso!");
             }
@@ -163,11 +163,11 @@ public class DataInitializer implements CommandLineRunner {
 
         if (softwareLicencaRepository.count() == 0) {
             log.info("Criando licencas de software iniciais...");
-            createSoftwareLicenca("Microsoft Office 365", "Microsoft", "XXXXX-XXXXX-XXXXX", "assinatura", 50, 35, LocalDate.of(2024, 1, 1), LocalDate.of(2025, 1, 1), 12000.00);
-            createSoftwareLicenca("Windows 11 Pro", "Microsoft", "XXXXX-XXXXX-XXXXX", "volume", 50, 20, LocalDate.of(2024, 1, 1), null, 0.0);
-            createSoftwareLicenca("Adobe Creative Cloud", "Adobe", "XXXXX-XXXXX-XXXXX", "assinatura", 10, 8, LocalDate.of(2024, 3, 1), LocalDate.of(2025, 3, 1), 18000.00);
-            createSoftwareLicenca("Kaspersky Endpoint Security", "Kaspersky", "XXXXX-XXXXX-XXXXX", "volume", 50, 20, LocalDate.of(2024, 1, 1), LocalDate.of(2025, 1, 1), 5000.00);
-            createSoftwareLicenca("AutoCAD", "Autodesk", "XXXXX-XXXXX-XXXXX", "assinatura", 5, 3, LocalDate.of(2024, 6, 1), LocalDate.of(2025, 6, 1), 7500.00);
+            createSoftwareLicenca("Microsoft Office 365", "Microsoft", "XXXXX-XXXXX-XXXXX", "assinatura", 50, 35, LocalDate.of(2024, 1, 1), LocalDate.of(2025, 1, 1));
+            createSoftwareLicenca("Windows 11 Pro", "Microsoft", "XXXXX-XXXXX-XXXXX", "volume", 50, 20, LocalDate.of(2024, 1, 1), null);
+            createSoftwareLicenca("Adobe Creative Cloud", "Adobe", "XXXXX-XXXXX-XXXXX", "assinatura", 10, 8, LocalDate.of(2024, 3, 1), LocalDate.of(2025, 3, 1));
+            createSoftwareLicenca("Kaspersky Endpoint Security", "Kaspersky", "XXXXX-XXXXX-XXXXX", "volume", 50, 20, LocalDate.of(2024, 1, 1), LocalDate.of(2025, 1, 1));
+            createSoftwareLicenca("AutoCAD", "Autodesk", "XXXXX-XXXXX-XXXXX", "assinatura", 5, 3, LocalDate.of(2024, 6, 1), LocalDate.of(2025, 6, 1));
             log.info("5 licencas de software criadas com sucesso!");
         }
 
@@ -197,11 +197,11 @@ public class DataInitializer implements CommandLineRunner {
         computadorRepository.save(comp);
     }
 
-    private void createSoftwareLicenca(String nome, String fabricante, String chave, String tipo, int total, int usados, LocalDate aquisicao, LocalDate expiracao, Double custo) {
+    private void createSoftwareLicenca(String nome, String fabricante, String chave, String tipo, int total, int usados, LocalDate aquisicao, LocalDate expiracao) {
         SoftwareLicenca s = SoftwareLicenca.builder()
             .nomeSoftware(nome).fabricante(fabricante).chaveLicenca(chave)
             .tipoLicenca(tipo).quantidadeTotal(total).quantidadeUtilizada(usados)
-            .dataAquisicao(aquisicao).dataExpiracao(expiracao).custoAnual(custo)
+            .dataAquisicao(aquisicao).dataExpiracao(expiracao)
             .build();
         softwareLicencaRepository.save(s);
     }
@@ -245,7 +245,7 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void createManutencao(Computador computador, TipoManutencao tipo, StatusManutencao status,
-                                   String descricao, String tecnico, Double custo,
+                                   String descricao, String tecnico,
                                    String pecas, String observacoes) {
         Manutencao m = Manutencao.builder()
             .computador(computador)
@@ -253,7 +253,6 @@ public class DataInitializer implements CommandLineRunner {
             .status(status)
             .descricao(descricao)
             .tecnicoResponsavel(tecnico)
-            .custo(custo)
             .pecasTrocadas(pecas)
             .observacoes(observacoes)
             .build();

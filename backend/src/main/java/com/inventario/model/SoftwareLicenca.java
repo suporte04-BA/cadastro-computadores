@@ -38,9 +38,6 @@ public class SoftwareLicenca {
     @Column(name = "data_expiracao")
     private LocalDate dataExpiracao;
 
-    @Column(name = "custo_anual")
-    private Double custoAnual;
-
     @Column(name = "observacoes", columnDefinition = "TEXT")
     private String observacoes;
 

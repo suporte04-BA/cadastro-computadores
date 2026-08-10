@@ -19,16 +19,19 @@ public class UserService {
     private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
 
+    @Transactional(readOnly = true)
     public List<UserDTO> listarTodos() {
         return repository.findAllByOrderByIdAsc().stream().map(this::toDTO).toList();
     }
 
+    @Transactional(readOnly = true)
     public UserDTO buscarPorId(Long id) {
         User u = repository.findById(id)
             .orElseThrow(() -> new RecursoNaoEncontradoException("Usuario", id));
         return toDTO(u);
     }
 
+    @Transactional(readOnly = true)
     public UserDTO buscarPorUsername(String username) {
         User u = repository.findByUsername(username)
             .orElseThrow(() -> new RecursoNaoEncontradoException("Usuario: " + username));
@@ -56,7 +59,8 @@ public class UserService {
         if (isPublicRegistration) {
             user.setPerfil(PerfilUsuario.USUARIO);
         } else if (dto.getPerfil() != null) {
-            user.setPerfil(PerfilUsuario.valueOf(dto.getPerfil()));
+            try { user.setPerfil(PerfilUsuario.valueOf(dto.getPerfil())); }
+            catch (IllegalArgumentException e) { throw new RegraNegocioException("Perfil invalido. Valores aceitos: ADMIN, TECNICO, USUARIO"); }
         }
 
         user.setFotoUrl(dto.getFotoUrl());
@@ -74,7 +78,8 @@ public class UserService {
         if (dto.getAtivo() != null) user.setAtivo(dto.getAtivo());
 
         if (isAdmin && dto.getPerfil() != null) {
-            user.setPerfil(PerfilUsuario.valueOf(dto.getPerfil()));
+            try { user.setPerfil(PerfilUsuario.valueOf(dto.getPerfil())); }
+            catch (IllegalArgumentException e) { throw new RegraNegocioException("Perfil invalido. Valores aceitos: ADMIN, TECNICO, USUARIO"); }
         }
         if (dto.getSenha() != null && !dto.getSenha().isEmpty()) {
             if (dto.getSenha().length() < 6) {
@@ -124,9 +129,10 @@ public class UserService {
             .username(u.getUsername())
             .nomeCompleto(u.getNomeCompleto())
             .email(u.getEmail())
-            .perfil(u.getPerfil().name())
+            .perfil(u.getPerfil() != null ? u.getPerfil().name() : null)
             .fotoUrl(u.getFotoUrl())
             .ativo(u.getAtivo())
+            .dataCadastro(u.getDataCriacao())
             .build();
     }
 }

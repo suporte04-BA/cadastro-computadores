@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -24,10 +25,14 @@ public class UploadController {
 
     private static final Set<String> ALLOWED_TYPES = Set.of(
         "image/jpeg", "image/png", "image/gif", "image/webp",
-        "image/bmp", "image/tiff", "image/x-icon",
+        "image/bmp", "image/tiff", "image/tif", "image/x-icon",
         "image/heic", "image/heif", "image/heic-sequence",
-        "image/avif", "image/svg+xml",
-        "application/octet-stream"
+        "image/avif", "image/svg+xml", "image/x-tiff"
+    );
+
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
+        ".jpg", ".jpeg", ".jfif", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif",
+        ".ico", ".heic", ".heif", ".avif", ".svg"
     );
 
     private final WebConfig webConfig;
@@ -54,13 +59,17 @@ public class UploadController {
             : ".jpg";
 
         boolean validType = contentType != null && ALLOWED_TYPES.stream().anyMatch(t -> contentType.equalsIgnoreCase(t));
-        boolean validExt = Set.of(".jpg",".jpeg",".png",".gif",".webp",".bmp",".tiff",".tif",".ico",".heic",".heif",".avif",".svg").contains(ext);
+        boolean validExt = ALLOWED_EXTENSIONS.contains(ext);
 
-        if (!validType && !validExt) {
+        if (!validExt) {
             throw new RegraNegocioException(
-                "Tipo nao permitido (" + (contentType != null ? contentType : "desconhecido") + "). " +
-                "Use: JPG, PNG, GIF, WebP, BMP, TIFF, HEIC, AVIF ou SVG"
+                "Extensao nao permitida (" + ext + "). " +
+                "Use: JPG, JFIF, PNG, GIF, WebP, BMP, TIFF, HEIC, AVIF ou SVG"
             );
+        }
+
+        if (!validType && contentType != null && !contentType.equals("application/octet-stream")) {
+            log.warn("MIME type nao reconhecido: {} para extensao {}", contentType, ext);
         }
 
         try {
@@ -70,18 +79,20 @@ public class UploadController {
             String filename = "comp_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8) + ext;
             Path filePath = uploadPath.resolve(filename);
 
+            long fileSize;
             try (var inputStream = file.getInputStream()) {
                 Files.copy(inputStream, filePath, StandardCopyOption.REPLACE_EXISTING);
             }
 
-            if (!Files.exists(filePath) || Files.size(filePath) == 0) {
+            if (!Files.exists(filePath) || (fileSize = Files.size(filePath)) == 0) {
                 Files.deleteIfExists(filePath);
                 throw new RegraNegocioException("Falha ao salvar o arquivo. Tente novamente.");
             }
 
             String url = "/api/uploads/" + filename;
-            log.info("Upload OK: {} -> {} ({} bytes) -> {}", originalName, filename, Files.size(filePath), filePath.toAbsolutePath());
-            return ResponseEntity.ok(Map.of("url", url, "filename", filename));
+            String safeName = originalName != null ? originalName.replaceAll("[\\p{Cntrl}\\u2028\\u2029]", "_") : "desconhecido";
+            log.info("Upload OK: {} -> {} ({} bytes)", safeName, filename, fileSize);
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("url", url, "filename", filename));
 
         } catch (IOException e) {
             log.error("Erro IO no upload: {}", e.getMessage(), e);

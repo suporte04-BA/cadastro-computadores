@@ -2,6 +2,7 @@ package com.inventario.dto;
 
 import jakarta.validation.constraints.*;
 import lombok.*;
+import java.time.LocalDateTime;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class UserDTO {
@@ -12,7 +13,6 @@ public class UserDTO {
     @Size(min = 3, max = 50)
     private String username;
 
-    @Size(min = 6, message = "Senha deve ter no minimo 6 caracteres")
     private String senha;
 
     @NotBlank(message = "Nome completo e obrigatorio")
@@ -25,4 +25,5 @@ public class UserDTO {
     private String perfil;
     private String fotoUrl;
     private Boolean ativo;
+    private LocalDateTime dataCadastro;
 }

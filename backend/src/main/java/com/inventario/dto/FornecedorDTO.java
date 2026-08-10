@@ -9,7 +9,7 @@ public class FornecedorDTO {
     private Long id;
 
     @NotBlank(message = "Nome e obrigatorio")
-    @Size(max = 100)
+    @Size(max = 150)
     private String nome;
 
     @Size(max = 18)
@@ -19,7 +19,7 @@ public class FornecedorDTO {
     @Size(max = 100)
     private String email;
 
-    @Size(max = 20)
+    @Size(max = 30)
     private String telefone;
 
     @Size(max = 100)

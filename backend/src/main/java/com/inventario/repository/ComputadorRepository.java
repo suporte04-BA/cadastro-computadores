@@ -5,10 +5,13 @@ import com.inventario.model.enums.StatusComputador;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import jakarta.persistence.LockModeType;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ComputadorRepository extends JpaRepository<Computador, Long> {
@@ -36,6 +39,9 @@ public interface ComputadorRepository extends JpaRepository<Computador, Long> {
     @Query("SELECT COUNT(c) FROM Computador c WHERE c.proximaManutencao IS NOT NULL AND c.proximaManutencao < CURRENT_TIMESTAMP")
     long countManutencaoVencida();
 
+    @Query("SELECT c FROM Computador c WHERE c.proximaManutencao IS NOT NULL AND c.proximaManutencao < CURRENT_TIMESTAMP ORDER BY c.proximaManutencao ASC")
+    List<Computador> findManutencaoVencida();
+
     @Query("SELECT c.status, COUNT(c) FROM Computador c GROUP BY c.status")
     List<Object[]> countGroupByStatus();
 
@@ -46,4 +52,13 @@ public interface ComputadorRepository extends JpaRepository<Computador, Long> {
     List<Object[]> findGarantiaProxima();
 
     long countByDepartamento(String departamento);
+
+    @Query("SELECT c.departamento, COUNT(c) FROM Computador c WHERE c.departamento IS NOT NULL GROUP BY c.departamento")
+    List<Object[]> countGroupByDepartamento();
+
+    long countByFornecedor(String fornecedor);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Computador c WHERE c.id = :id")
+    Optional<Computador> findByIdWithPessimisticLock(@Param("id") Long id);
 }

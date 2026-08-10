@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -83,6 +84,8 @@
         .login-footer a:hover { color: #00e5c7; }
 
         @media(max-width:480px) { .login-container { padding: 12px; } .login-card { padding: 28px 18px; border-radius: 20px; } .logo-img { width: 100px; } .login-header h1 { font-size: 16px; } }
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(8,12,24,0.3); border-top-color: #080c18; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -144,17 +147,26 @@
             btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Cadastrando...';
             errDiv.style.display = 'none'; succDiv.style.display = 'none';
             try {
+                const nomeCompleto = document.getElementById('nomeCompleto').value.trim();
+                const username = document.getElementById('username').value.trim();
+                const email = document.getElementById('email').value.trim();
+                const senha = document.getElementById('senha').value;
+
+                if (nomeCompleto.length < 3) { showError('Nome completo deve ter no minimo 3 caracteres'); return; }
+                if (username.length < 3) { showError('Usuario deve ter no minimo 3 caracteres'); return; }
+                if (senha.length < 6) { showError('Senha deve ter no minimo 6 caracteres'); return; }
+                if (senha !== document.getElementById('senha2').value) { showError('As senhas nao conferem'); return; }
+
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cadastrando...';
+
                 const res = await fetch('/api/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        nomeCompleto: document.getElementById('nomeCompleto').value,
-                        username: document.getElementById('username').value,
-                        email: document.getElementById('email').value,
-                        senha: senha
-                    })
+                    body: JSON.stringify({ nomeCompleto, username, email, senha })
                 });
-                const data = await res.json();
+                let data;
+                try { data = await res.json(); } catch(e) { throw new Error('Resposta invalida do servidor'); }
                 if (!res.ok) throw new Error(data.erro || 'Erro ao cadastrar');
                 succDiv.textContent = 'Conta criada com sucesso! Redirecionando...';
                 succDiv.style.display = 'block';

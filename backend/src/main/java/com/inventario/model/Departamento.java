@@ -1,6 +1,7 @@
 package com.inventario.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
@@ -13,6 +14,7 @@ public class Departamento {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "Nome e obrigatorio")
     @Column(name = "nome", length = 100, nullable = false, unique = true)
     private String nome;
 

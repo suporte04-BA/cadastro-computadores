@@ -10,12 +10,13 @@ public class SoftwareLicencaDTO {
     private Long id;
 
     @NotBlank(message = "Nome do software e obrigatorio")
-    @Size(max = 100)
+    @Size(max = 150)
     private String nomeSoftware;
 
     @Size(max = 100)
     private String fabricante;
 
+    @Size(max = 200)
     private String chaveLicenca;
 
     @Size(max = 50)
@@ -29,9 +30,6 @@ public class SoftwareLicencaDTO {
 
     private LocalDate dataAquisicao;
     private LocalDate dataExpiracao;
-
-    @Min(value = 0, message = "Custo anual deve ser >= 0")
-    private Double custoAnual;
 
     private String observacoes;
     private LocalDateTime dataCriacao;

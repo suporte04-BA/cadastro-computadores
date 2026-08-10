@@ -20,6 +20,7 @@ public class ManutencaoService {
     private final ManutencaoRepository repository;
     private final ComputadorRepository computadorRepository;
 
+    @Transactional(readOnly = true)
     public PageResponse<ManutencaoDTO> listarPaginado(int page, int size, String status, Long computadorId) {
         StatusManutencao statusEnum = null;
         if (status != null && !status.isEmpty()) {
@@ -44,11 +45,13 @@ public class ManutencaoService {
             .build();
     }
 
+    @Transactional(readOnly = true)
     public List<ManutencaoDTO> listarPorComputador(Long computadorId) {
         return repository.findByComputadorIdOrderByDataInicioDesc(computadorId).stream()
             .map(this::toDTO).toList();
     }
 
+    @Transactional(readOnly = true)
     public ManutencaoDTO buscarPorId(Long id) {
         Manutencao m = repository.findById(id)
             .orElseThrow(() -> new RecursoNaoEncontradoException("Manutencao", id));
@@ -62,16 +65,20 @@ public class ManutencaoService {
 
         Manutencao m = new Manutencao();
         m.setComputador(computador);
-        if (dto.getTipo() != null) m.setTipo(TipoManutencao.valueOf(dto.getTipo()));
+        if (dto.getTipo() != null) {
+            try { m.setTipo(TipoManutencao.valueOf(dto.getTipo())); }
+            catch (IllegalArgumentException e) { throw new RegraNegocioException("Tipo invalido. Valores aceitos: CORRETIVA, PREVENTIVA, PREDITIVA, EMERGENCIAL"); }
+        }
         m.setDescricao(dto.getDescricao());
         m.setObservacoes(dto.getObservacoes());
         m.setTecnicoResponsavel(dto.getTecnicoResponsavel());
-        m.setCusto(dto.getCusto());
         m.setPecasTrocadas(dto.getPecasTrocadas());
         m.setFotoUrl(dto.getFotoUrl());
 
         if (dto.getStatus() != null) {
-            StatusManutencao newStatus = StatusManutencao.valueOf(dto.getStatus());
+            StatusManutencao newStatus;
+            try { newStatus = StatusManutencao.valueOf(dto.getStatus()); }
+            catch (IllegalArgumentException e) { throw new RegraNegocioException("Status invalido. Valores aceitos: PENDENTE, EM_ANDAMENTO, CONCLUIDA, CANCELADA"); }
             m.setStatus(newStatus);
             if (dto.getDataInicio() != null) {
                 m.setDataInicio(dto.getDataInicio());
@@ -88,9 +95,14 @@ public class ManutencaoService {
         Manutencao m = repository.findById(id)
             .orElseThrow(() -> new RecursoNaoEncontradoException("Manutencao", id));
 
-        if (dto.getTipo() != null) m.setTipo(TipoManutencao.valueOf(dto.getTipo()));
+        if (dto.getTipo() != null) {
+            try { m.setTipo(TipoManutencao.valueOf(dto.getTipo())); }
+            catch (IllegalArgumentException e) { throw new RegraNegocioException("Tipo invalido. Valores aceitos: CORRETIVA, PREVENTIVA, PREDITIVA, EMERGENCIAL"); }
+        }
         if (dto.getStatus() != null) {
-            StatusManutencao newStatus = StatusManutencao.valueOf(dto.getStatus());
+            StatusManutencao newStatus;
+            try { newStatus = StatusManutencao.valueOf(dto.getStatus()); }
+            catch (IllegalArgumentException e) { throw new RegraNegocioException("Status invalido. Valores aceitos: PENDENTE, EM_ANDAMENTO, CONCLUIDA, CANCELADA"); }
             m.setStatus(newStatus);
             if (newStatus == StatusManutencao.EM_ANDAMENTO && m.getDataInicio() == null) {
                 m.setDataInicio(java.time.LocalDateTime.now());
@@ -102,7 +114,6 @@ public class ManutencaoService {
         if (dto.getDescricao() != null) m.setDescricao(dto.getDescricao());
         if (dto.getObservacoes() != null) m.setObservacoes(dto.getObservacoes());
         if (dto.getTecnicoResponsavel() != null) m.setTecnicoResponsavel(dto.getTecnicoResponsavel());
-        if (dto.getCusto() != null) m.setCusto(dto.getCusto());
         if (dto.getPecasTrocadas() != null) m.setPecasTrocadas(dto.getPecasTrocadas());
         if (dto.getFotoUrl() != null) m.setFotoUrl(dto.getFotoUrl());
 
@@ -117,6 +128,7 @@ public class ManutencaoService {
         repository.deleteById(id);
     }
 
+    @Transactional(readOnly = true)
     public Map<String, Object> estatisticas() {
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("total", repository.count());
@@ -124,7 +136,6 @@ public class ManutencaoService {
         stats.put("emAndamento", repository.countByStatus(StatusManutencao.EM_ANDAMENTO));
         stats.put("concluidas", repository.countByStatus(StatusManutencao.CONCLUIDA));
         stats.put("canceladas", repository.countByStatus(StatusManutencao.CANCELADA));
-        stats.put("custoTotal", repository.sumTotalCusto());
 
         List<Object[]> byTipo = repository.countGroupByTipo();
         Map<String, Long> porTipo = new LinkedHashMap<>();
@@ -147,18 +158,18 @@ public class ManutencaoService {
     private ManutencaoDTO toDTO(Manutencao m) {
         return ManutencaoDTO.builder()
             .id(m.getId())
-            .computadorId(m.getComputador().getId())
-            .computadorNome(m.getComputador().getNomePc())
-            .tipo(m.getTipo().name())
-            .status(m.getStatus().name())
+            .computadorId(m.getComputador() != null ? m.getComputador().getId() : null)
+            .computadorNome(m.getComputador() != null ? m.getComputador().getNomePc() : null)
+            .tipo(m.getTipo() != null ? m.getTipo().name() : null)
+            .status(m.getStatus() != null ? m.getStatus().name() : null)
             .descricao(m.getDescricao())
             .observacoes(m.getObservacoes())
             .tecnicoResponsavel(m.getTecnicoResponsavel())
             .dataInicio(m.getDataInicio())
             .dataConclusao(m.getDataConclusao())
-            .custo(m.getCusto())
             .pecasTrocadas(m.getPecasTrocadas())
             .fotoUrl(m.getFotoUrl())
+            .dataCadastro(m.getDataCriacao())
             .build();
     }
 }

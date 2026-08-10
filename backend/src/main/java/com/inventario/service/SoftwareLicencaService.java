@@ -3,6 +3,7 @@ package com.inventario.service;
 import com.inventario.dto.PageResponse;
 import com.inventario.dto.SoftwareLicencaDTO;
 import com.inventario.exception.RecursoNaoEncontradoException;
+import com.inventario.exception.RegraNegocioException;
 import com.inventario.model.SoftwareLicenca;
 import com.inventario.repository.SoftwareLicencaRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class SoftwareLicencaService {
 
     private final SoftwareLicencaRepository repository;
 
+    @Transactional(readOnly = true)
     public PageResponse<SoftwareLicencaDTO> listarPaginado(int page, int size, String termo) {
         String t = (termo != null && !termo.isEmpty()) ? termo : null;
         Page<SoftwareLicenca> pageResult = repository.filtrar(t,
@@ -29,6 +31,7 @@ public class SoftwareLicencaService {
             .totalElements(pageResult.getTotalElements()).totalPages(pageResult.getTotalPages()).build();
     }
 
+    @Transactional(readOnly = true)
     public SoftwareLicencaDTO buscarPorId(Long id) {
         return toDTO(repository.findById(id)
             .orElseThrow(() -> new RecursoNaoEncontradoException("Software Licenca", id)));
@@ -43,9 +46,11 @@ public class SoftwareLicencaService {
         s.setTipoLicenca(dto.getTipoLicenca());
         s.setQuantidadeTotal(dto.getQuantidadeTotal() != null ? dto.getQuantidadeTotal() : 1);
         s.setQuantidadeUtilizada(dto.getQuantidadeUtilizada() != null ? dto.getQuantidadeUtilizada() : 0);
+        if (s.getQuantidadeUtilizada() > s.getQuantidadeTotal()) {
+            throw new RegraNegocioException("Quantidade utilizada nao pode exceder a quantidade total");
+        }
         s.setDataAquisicao(dto.getDataAquisicao());
         s.setDataExpiracao(dto.getDataExpiracao());
-        s.setCustoAnual(dto.getCustoAnual());
         s.setObservacoes(dto.getObservacoes());
         return toDTO(repository.save(s));
     }
@@ -60,9 +65,11 @@ public class SoftwareLicencaService {
         if (dto.getTipoLicenca() != null) s.setTipoLicenca(dto.getTipoLicenca());
         if (dto.getQuantidadeTotal() != null) s.setQuantidadeTotal(dto.getQuantidadeTotal());
         if (dto.getQuantidadeUtilizada() != null) s.setQuantidadeUtilizada(dto.getQuantidadeUtilizada());
+        if (s.getQuantidadeUtilizada() > s.getQuantidadeTotal()) {
+            throw new RegraNegocioException("Quantidade utilizada nao pode exceder a quantidade total");
+        }
         if (dto.getDataAquisicao() != null) s.setDataAquisicao(dto.getDataAquisicao());
         if (dto.getDataExpiracao() != null) s.setDataExpiracao(dto.getDataExpiracao());
-        if (dto.getCustoAnual() != null) s.setCustoAnual(dto.getCustoAnual());
         if (dto.getObservacoes() != null) s.setObservacoes(dto.getObservacoes());
         return toDTO(repository.save(s));
     }
@@ -86,7 +93,6 @@ public class SoftwareLicencaService {
             .quantidadeUtilizada(s.getQuantidadeUtilizada())
             .dataAquisicao(s.getDataAquisicao())
             .dataExpiracao(s.getDataExpiracao())
-            .custoAnual(s.getCustoAnual())
             .observacoes(s.getObservacoes())
             .dataCriacao(s.getDataCriacao())
             .dataAtualizacao(s.getDataAtualizacao())

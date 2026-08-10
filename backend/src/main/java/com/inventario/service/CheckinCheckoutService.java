@@ -20,6 +20,7 @@ public class CheckinCheckoutService {
     private final ComputadorRepository computadorRepository;
     private final LogAtividadeService logService;
 
+    @Transactional(readOnly = true)
     public PageResponse<CheckinCheckoutDTO> listarPaginado(int page, int size, String status, String usuario) {
         Page<CheckinCheckout> pageResult = repository.filtrar(status, usuario,
             PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "dataOperacao")));
@@ -29,11 +30,13 @@ public class CheckinCheckoutService {
             .totalElements(pageResult.getTotalElements()).totalPages(pageResult.getTotalPages()).build();
     }
 
+    @Transactional(readOnly = true)
     public List<CheckinCheckoutDTO> listarPorComputador(Long computadorId) {
         return repository.findByComputadorIdAndStatusOrderByDataOperacaoDesc(computadorId, "ATIVO")
             .stream().map(this::toDTO).toList();
     }
 
+    @Transactional(readOnly = true)
     public List<CheckinCheckoutDTO> listarAtivos() {
         return repository.findByStatusOrderByDataOperacaoDesc("ATIVO",
             PageRequest.of(0, 100)).getContent().stream().map(this::toDTO).toList();
@@ -41,8 +44,13 @@ public class CheckinCheckoutService {
 
     @Transactional
     public CheckinCheckoutDTO checkout(Long computadorId, String usuario, String observacao, String realizadoPor) {
-        Computador comp = computadorRepository.findById(computadorId)
+        Computador comp = computadorRepository.findByIdWithPessimisticLock(computadorId)
             .orElseThrow(() -> new RecursoNaoEncontradoException("Computador", computadorId));
+
+        boolean alreadyCheckedOut = repository.existsByComputadorIdAndStatus(computadorId, "ATIVO");
+        if (alreadyCheckedOut) {
+            throw new RegraNegocioException("Computador ja esta em checkout ativo");
+        }
 
         CheckinCheckout cc = CheckinCheckout.builder()
             .computador(comp)
@@ -80,6 +88,7 @@ public class CheckinCheckoutService {
         return toDTO(repository.save(cc));
     }
 
+    @Transactional(readOnly = true)
     public java.util.Map<String, Object> estatisticas() {
         java.util.Map<String, Object> stats = new java.util.LinkedHashMap<>();
         stats.put("ativos", repository.countByStatus("ATIVO"));
