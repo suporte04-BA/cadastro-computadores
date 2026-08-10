@@ -111,6 +111,13 @@ public class ComputadorService {
                     throw new RegraNegocioException("Nao e possivel definir status ATIVO: computador possui manutencao ativa (PENDENTE ou EM_ANDAMENTO)");
                 }
             }
+            if (newStatus == StatusComputador.MANUTENCAO_PREDITIVA || newStatus == StatusComputador.MANUTENCAO_PREVENTIVA || newStatus == StatusComputador.MANUTENCAO_EMERGENCIAL) {
+                boolean hasActiveManutencao = manutencaoRepository.existsByComputadorIdAndStatusIn(
+                    id, List.of(StatusManutencao.PENDENTE, StatusManutencao.EM_ANDAMENTO));
+                if (!hasActiveManutencao) {
+                    newStatus = StatusComputador.ATIVO;
+                }
+            }
             existing.setStatus(newStatus);
             if (newStatus == StatusComputador.CONCLUIDO) {
                 existing.setDataUltimaManutencao(LocalDateTime.now());
