@@ -14,3 +14,5 @@ Thumbs.db
 *.war
 *.ear
 backend/src/main/resources/static/
+.pm2/
+package-lock.json
