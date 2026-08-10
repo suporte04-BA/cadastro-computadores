@@ -1117,7 +1117,8 @@ function setupPhotoUpload() {
     var urlFinal = document.getElementById('eqFotoUrlFinal');
     var preview = document.getElementById('fotoPreview');
     if (!dropZone) return;
-    dropZone.addEventListener('click', function(e) { if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'I') fileInput.click(); });
+    dropZone.addEventListener('click', function(e) { if (e.target === fileInput || e.target.tagName === 'BUTTON' || e.target.tagName === 'I' || e.target.tagName === 'IMG') return; fileInput.click(); });
+    fileInput.addEventListener('click', function(e) { e.stopPropagation(); });
     dropZone.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('drag-over'); });
     dropZone.addEventListener('dragleave', function(e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('drag-over'); });
     dropZone.addEventListener('drop', function(e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files.length) handlePhotoFile(e.dataTransfer.files[0]); });
@@ -1215,7 +1216,8 @@ function setupManutencaoPhotoUpload() {
     var urlFinal = document.getElementById('manFotoUrlFinal');
     var preview = document.getElementById('manFotoPreview');
     if (!dropZone) return;
-    dropZone.addEventListener('click', function(e) { if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'I') fileInput.click(); });
+    dropZone.addEventListener('click', function(e) { if (e.target === fileInput || e.target.tagName === 'BUTTON' || e.target.tagName === 'I' || e.target.tagName === 'IMG') return; fileInput.click(); });
+    fileInput.addEventListener('click', function(e) { e.stopPropagation(); });
     dropZone.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('drag-over'); });
     dropZone.addEventListener('dragleave', function(e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('drag-over'); });
     dropZone.addEventListener('drop', function(e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files.length) handleManPhotoFile(e.dataTransfer.files[0]); });
