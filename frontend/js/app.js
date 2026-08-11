@@ -3,7 +3,7 @@
 // Complete Rewrite v4.2 - Audit logging, cross-tab refresh
 // ==========================================
 const API = '';
-let currentPage = { computadores: 0, manutenções: 0, ordensServiço: 0, logs: 0, software: 0 };
+let currentPage = { computadores: 0, manutencoes: 0, ordensServico: 0, logs: 0, software: 0 };
 let allComputadores = [];
 let selectedComputadores = new Set();
 let USE_MOCK = false;
@@ -15,7 +15,7 @@ let _currentSection = 'painel';
 let _currentTab = 0;
 let _photoUploading = false;
 let _manPhotoUploading = false;
-let _manFilters = { status: '', termo: '', showConcluídas: false };
+let _manFilters = { status: '', termo: '', showConcluidas: false };
 let _wsClient = null;
 let _wsConnected = false;
 let _wsReconnectTimer = null;
@@ -24,54 +24,54 @@ Chart.defaults.borderColor = 'rgba(255,255,255,0.04)';
 Chart.defaults.font.family = "'Inter', sans-serif";
 
 var MOCK_COMPUTADORES = [
-    { id: 1, nomePc: 'PC-ADM-001', númeroSérie: 'SN-2024-001', modeloMarca: 'Dell OptiPlex 7090', processador: 'Intel Core i7-11700', memoriaRam: '16GB DDR4', armazenamento: '512GB SSD NVMe', usuarioDesignado: 'Carlos Silva', fornecedor: 'Dell Tecnologia', status: 'ATIVO', dataCadastro: '2024-01-15T10:00:00' },
-    { id: 2, nomePc: 'PC-ADM-002', númeroSérie: 'SN-2024-002', modeloMarca: 'Lenovo ThinkCentre M920', processador: 'Intel Core i5-9500', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Ana Beatriz', fornecedor: 'Lenovo', status: 'ATIVO', dataCadastro: '2024-02-10T10:00:00' },
-    { id: 3, nomePc: 'PC-LOG-001', númeroSérie: 'SN-2024-003', modeloMarca: 'HP ProDesk 400 G7', processador: 'Intel Core i5-10500', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Roberto Souza', fornecedor: 'HP Brasil', status: 'MANUTENCAO_PREVENTIVA', dataCadastro: '2024-01-20T10:00:00' },
-    { id: 4, nomePc: 'PC-LOG-002', númeroSérie: 'SN-2024-004', modeloMarca: 'Dell Vostro 3681', processador: 'Intel Core i3-10100', memoriaRam: '4GB DDR4', armazenamento: '1TB HDD', usuarioDesignado: 'Maria Oliveira', fornecedor: 'Dell Tecnologia', status: 'MANUTENCAO_EMERGENCIAL', dataCadastro: '2024-03-05T10:00:00' },
-    { id: 5, nomePc: 'PC-TI-001', númeroSérie: 'SN-2024-005', modeloMarca: 'Lenovo ThinkPad T490', processador: 'Intel Core i7-8565U', memoriaRam: '16GB DDR4', armazenamento: '512GB SSD', usuarioDesignado: 'Joao Pedro', fornecedor: 'Lenovo', status: 'ATIVO', dataCadastro: '2024-01-10T10:00:00' },
-    { id: 6, nomePc: 'PC-FIN-001', númeroSérie: 'SN-2024-006', modeloMarca: 'HP EliteDesk 800 G6', processador: 'Intel Core i5-10500T', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Fernanda Lima', fornecedor: 'HP Brasil', status: 'ATIVO', dataCadastro: '2024-02-15T10:00:00' },
-    { id: 7, nomePc: 'PC-FIN-002', númeroSérie: 'SN-2024-007', modeloMarca: 'Dell OptiPlex 3080', processador: 'Intel Core i3-10100', memoriaRam: '4GB DDR4', armazenamento: '500GB HDD', usuarioDesignado: 'Pedro Henrique', fornecedor: 'Dell Tecnologia', status: 'MANUTENCAO_PREDITIVA', dataCadastro: '2024-03-01T10:00:00' },
-    { id: 8, nomePc: 'PC-RH-001', númeroSérie: 'SN-2024-008', modeloMarca: 'Acer Veriton M4660G', processador: 'Intel Core i5-9400', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Juliana Costa', fornecedor: 'Acer', status: 'ATIVO', dataCadastro: '2024-01-25T10:00:00' },
-    { id: 9, nomePc: 'PC-VEN-001', númeroSérie: 'SN-2024-009', modeloMarca: 'Lenovo IdeaCentre 520', processador: 'AMD Ryzen 5 3500', memoriaRam: '8GB DDR4', armazenamento: '1TB HDD', usuarioDesignado: 'Lucas Almeida', fornecedor: 'Lenovo', status: 'CONCLUIDO', dataCadastro: '2024-02-20T10:00:00' },
-    { id: 10, nomePc: 'PC-VEN-002', númeroSérie: 'SN-2024-010', modeloMarca: 'HP ProOne 440 G6', processador: 'Intel Core i5-9500T', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Mariana Santos', fornecedor: 'HP Brasil', status: 'ATIVO', dataCadastro: '2024-03-10T10:00:00' },
-    { id: 11, nomePc: 'PC-PRD-001', númeroSérie: 'SN-2024-011', modeloMarca: 'Dell Precision 3430', processador: 'Intel Core i7-8700', memoriaRam: '32GB DDR4', armazenamento: '1TB SSD', usuarioDesignado: 'Técnico A', fornecedor: 'Dell Tecnologia', status: 'ATIVO', dataCadastro: '2024-01-05T10:00:00' },
-    { id: 12, nomePc: 'PC-PRD-002', númeroSérie: 'SN-2024-012', modeloMarca: 'Lenovo ThinkStation P330', processador: 'Intel Core i9-9900', memoriaRam: '64GB DDR4', armazenamento: '2TB SSD', usuarioDesignado: 'Técnico B', fornecedor: 'Lenovo', status: 'ATIVO', dataCadastro: '2024-02-01T10:00:00' },
-    { id: 13, nomePc: 'PC-PRD-003', númeroSérie: 'SN-2024-013', modeloMarca: 'HP Z2 Tower G4', processador: 'Intel Core i7-9700', memoriaRam: '16GB DDR4', armazenamento: '512GB SSD', usuarioDesignado: 'Técnico C', fornecedor: 'HP Brasil', status: 'MANUTENCAO_PREVENTIVA', dataCadastro: '2024-03-15T10:00:00' },
-    { id: 14, nomePc: 'PC-ADM-003', númeroSérie: 'SN-2024-014', modeloMarca: 'Dell Latitude 5520', processador: 'Intel Core i5-1135G7', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Gerente TI', fornecedor: 'Dell Tecnologia', status: 'ATIVO', dataCadastro: '2024-01-18T10:00:00' },
-    { id: 15, nomePc: 'PC-ALM-001', númeroSérie: 'SN-2024-015', modeloMarca: 'Acer Aspire TC-885', processador: 'Intel Core i3-9100', memoriaRam: '4GB DDR4', armazenamento: '1TB HDD', usuarioDesignado: 'Auxiliar Almox', fornecedor: 'Acer', status: 'MANUTENCAO_EMERGENCIAL', dataCadastro: '2024-02-28T10:00:00' },
-    { id: 16, nomePc: 'PC-ADM-004', númeroSérie: 'SN-2024-016', modeloMarca: 'Lenovo ThinkCentre M70s', processador: 'Intel Core i5-11400', memoriaRam: '16GB DDR4', armazenamento: '512GB SSD', usuarioDesignado: 'Assistente Adm', fornecedor: 'Lenovo', status: 'ATIVO', dataCadastro: '2024-03-20T10:00:00' },
-    { id: 17, nomePc: 'PC-LOG-003', númeroSérie: 'SN-2024-017', modeloMarca: 'HP ProDesk 600 G6', processador: 'Intel Core i7-10700', memoriaRam: '16GB DDR4', armazenamento: '512GB SSD', usuarioDesignado: 'Supervisor Log', fornecedor: 'HP Brasil', status: 'CONCLUIDO', dataCadastro: '2024-01-22T10:00:00' },
-    { id: 18, nomePc: 'PC-FIN-003', númeroSérie: 'SN-2024-018', modeloMarca: 'Dell OptiPlex 5090', processador: 'Intel Core i5-11500', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Analista Fin', fornecedor: 'Dell Tecnologia', status: 'ATIVO', dataCadastro: '2024-02-12T10:00:00' },
-    { id: 19, nomePc: 'PC-VEN-003', númeroSérie: 'SN-2024-019', modeloMarca: 'Lenovo ThinkCentre M920t', processador: 'Intel Core i5-9500', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Consultor Vendas', fornecedor: 'Lenovo', status: 'ATIVO', dataCadastro: '2024-03-08T10:00:00' },
-    { id: 20, nomePc: 'PC-TI-002', númeroSérie: 'SN-2024-020', modeloMarca: 'Dell XPS 8940', processador: 'Intel Core i9-11900', memoriaRam: '32GB DDR4', armazenamento: '1TB SSD NVMe', usuarioDesignado: 'Dev Senior', fornecedor: 'Dell Tecnologia', status: 'ATIVO', dataCadastro: '2024-01-08T10:00:00' }
+    { id: 1, nomePc: 'PC-ADM-001', numeroSerie: 'SN-2024-001', modeloMarca: 'Dell OptiPlex 7090', processador: 'Intel Core i7-11700', memoriaRam: '16GB DDR4', armazenamento: '512GB SSD NVMe', usuarioDesignado: 'Carlos Silva', fornecedor: 'Dell Tecnologia', status: 'ATIVO', dataCadastro: '2024-01-15T10:00:00' },
+    { id: 2, nomePc: 'PC-ADM-002', numeroSerie: 'SN-2024-002', modeloMarca: 'Lenovo ThinkCentre M920', processador: 'Intel Core i5-9500', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Ana Beatriz', fornecedor: 'Lenovo', status: 'ATIVO', dataCadastro: '2024-02-10T10:00:00' },
+    { id: 3, nomePc: 'PC-LOG-001', numeroSerie: 'SN-2024-003', modeloMarca: 'HP ProDesk 400 G7', processador: 'Intel Core i5-10500', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Roberto Souza', fornecedor: 'HP Brasil', status: 'MANUTENCAO_PREVENTIVA', dataCadastro: '2024-01-20T10:00:00' },
+    { id: 4, nomePc: 'PC-LOG-002', numeroSerie: 'SN-2024-004', modeloMarca: 'Dell Vostro 3681', processador: 'Intel Core i3-10100', memoriaRam: '4GB DDR4', armazenamento: '1TB HDD', usuarioDesignado: 'Maria Oliveira', fornecedor: 'Dell Tecnologia', status: 'MANUTENCAO_EMERGENCIAL', dataCadastro: '2024-03-05T10:00:00' },
+    { id: 5, nomePc: 'PC-TI-001', numeroSerie: 'SN-2024-005', modeloMarca: 'Lenovo ThinkPad T490', processador: 'Intel Core i7-8565U', memoriaRam: '16GB DDR4', armazenamento: '512GB SSD', usuarioDesignado: 'Joao Pedro', fornecedor: 'Lenovo', status: 'ATIVO', dataCadastro: '2024-01-10T10:00:00' },
+    { id: 6, nomePc: 'PC-FIN-001', numeroSerie: 'SN-2024-006', modeloMarca: 'HP EliteDesk 800 G6', processador: 'Intel Core i5-10500T', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Fernanda Lima', fornecedor: 'HP Brasil', status: 'ATIVO', dataCadastro: '2024-02-15T10:00:00' },
+    { id: 7, nomePc: 'PC-FIN-002', numeroSerie: 'SN-2024-007', modeloMarca: 'Dell OptiPlex 3080', processador: 'Intel Core i3-10100', memoriaRam: '4GB DDR4', armazenamento: '500GB HDD', usuarioDesignado: 'Pedro Henrique', fornecedor: 'Dell Tecnologia', status: 'MANUTENCAO_PREDITIVA', dataCadastro: '2024-03-01T10:00:00' },
+    { id: 8, nomePc: 'PC-RH-001', numeroSerie: 'SN-2024-008', modeloMarca: 'Acer Veriton M4660G', processador: 'Intel Core i5-9400', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Juliana Costa', fornecedor: 'Acer', status: 'ATIVO', dataCadastro: '2024-01-25T10:00:00' },
+    { id: 9, nomePc: 'PC-VEN-001', numeroSerie: 'SN-2024-009', modeloMarca: 'Lenovo IdeaCentre 520', processador: 'AMD Ryzen 5 3500', memoriaRam: '8GB DDR4', armazenamento: '1TB HDD', usuarioDesignado: 'Lucas Almeida', fornecedor: 'Lenovo', status: 'CONCLUIDO', dataCadastro: '2024-02-20T10:00:00' },
+    { id: 10, nomePc: 'PC-VEN-002', numeroSerie: 'SN-2024-010', modeloMarca: 'HP ProOne 440 G6', processador: 'Intel Core i5-9500T', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Mariana Santos', fornecedor: 'HP Brasil', status: 'ATIVO', dataCadastro: '2024-03-10T10:00:00' },
+    { id: 11, nomePc: 'PC-PRD-001', numeroSerie: 'SN-2024-011', modeloMarca: 'Dell Precision 3430', processador: 'Intel Core i7-8700', memoriaRam: '32GB DDR4', armazenamento: '1TB SSD', usuarioDesignado: 'Técnico A', fornecedor: 'Dell Tecnologia', status: 'ATIVO', dataCadastro: '2024-01-05T10:00:00' },
+    { id: 12, nomePc: 'PC-PRD-002', numeroSerie: 'SN-2024-012', modeloMarca: 'Lenovo ThinkStation P330', processador: 'Intel Core i9-9900', memoriaRam: '64GB DDR4', armazenamento: '2TB SSD', usuarioDesignado: 'Técnico B', fornecedor: 'Lenovo', status: 'ATIVO', dataCadastro: '2024-02-01T10:00:00' },
+    { id: 13, nomePc: 'PC-PRD-003', numeroSerie: 'SN-2024-013', modeloMarca: 'HP Z2 Tower G4', processador: 'Intel Core i7-9700', memoriaRam: '16GB DDR4', armazenamento: '512GB SSD', usuarioDesignado: 'Técnico C', fornecedor: 'HP Brasil', status: 'MANUTENCAO_PREVENTIVA', dataCadastro: '2024-03-15T10:00:00' },
+    { id: 14, nomePc: 'PC-ADM-003', numeroSerie: 'SN-2024-014', modeloMarca: 'Dell Latitude 5520', processador: 'Intel Core i5-1135G7', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Gerente TI', fornecedor: 'Dell Tecnologia', status: 'ATIVO', dataCadastro: '2024-01-18T10:00:00' },
+    { id: 15, nomePc: 'PC-ALM-001', numeroSerie: 'SN-2024-015', modeloMarca: 'Acer Aspire TC-885', processador: 'Intel Core i3-9100', memoriaRam: '4GB DDR4', armazenamento: '1TB HDD', usuarioDesignado: 'Auxiliar Almox', fornecedor: 'Acer', status: 'MANUTENCAO_EMERGENCIAL', dataCadastro: '2024-02-28T10:00:00' },
+    { id: 16, nomePc: 'PC-ADM-004', numeroSerie: 'SN-2024-016', modeloMarca: 'Lenovo ThinkCentre M70s', processador: 'Intel Core i5-11400', memoriaRam: '16GB DDR4', armazenamento: '512GB SSD', usuarioDesignado: 'Assistente Adm', fornecedor: 'Lenovo', status: 'ATIVO', dataCadastro: '2024-03-20T10:00:00' },
+    { id: 17, nomePc: 'PC-LOG-003', numeroSerie: 'SN-2024-017', modeloMarca: 'HP ProDesk 600 G6', processador: 'Intel Core i7-10700', memoriaRam: '16GB DDR4', armazenamento: '512GB SSD', usuarioDesignado: 'Supervisor Log', fornecedor: 'HP Brasil', status: 'CONCLUIDO', dataCadastro: '2024-01-22T10:00:00' },
+    { id: 18, nomePc: 'PC-FIN-003', numeroSerie: 'SN-2024-018', modeloMarca: 'Dell OptiPlex 5090', processador: 'Intel Core i5-11500', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Analista Fin', fornecedor: 'Dell Tecnologia', status: 'ATIVO', dataCadastro: '2024-02-12T10:00:00' },
+    { id: 19, nomePc: 'PC-VEN-003', numeroSerie: 'SN-2024-019', modeloMarca: 'Lenovo ThinkCentre M920t', processador: 'Intel Core i5-9500', memoriaRam: '8GB DDR4', armazenamento: '256GB SSD', usuarioDesignado: 'Consultor Vendas', fornecedor: 'Lenovo', status: 'ATIVO', dataCadastro: '2024-03-08T10:00:00' },
+    { id: 20, nomePc: 'PC-TI-002', numeroSerie: 'SN-2024-020', modeloMarca: 'Dell XPS 8940', processador: 'Intel Core i9-11900', memoriaRam: '32GB DDR4', armazenamento: '1TB SSD NVMe', usuarioDesignado: 'Dev Senior', fornecedor: 'Dell Tecnologia', status: 'ATIVO', dataCadastro: '2024-01-08T10:00:00' }
 ];
 
 var MOCK_MANUTENCOES = [
-    { id: 1, computadorId: 3, computadorNome: 'PC-LOG-001', tipó: 'PREVENTIVA', status: 'EM_ANDAMENTO', descricao: 'Troca de pasta térmica e limpeza geral', tecnicoRespónsável: 'Carlos Mendes', pecasTrocadas: 'Pasta térmica Artic MX-5', observações: 'Agendado para manhã', dataCadastro: '2024-06-10T08:00:00', dataConclusao: null },
-    { id: 2, computadorId: 4, computadorNome: 'PC-LOG-002', tipó: 'EMERGENCIAL', status: 'PENDENTE', descricao: 'PC não liga. Verificar fonte e placa mãe', tecnicoRespónsável: 'Roberto Alves', pecasTrocadas: '', observações: 'Prioridade alta', dataCadastro: '2024-06-12T14:30:00', dataConclusao: null },
-    { id: 3, computadorId: 7, computadorNome: 'PC-FIN-002', tipó: 'PREDITIVA', status: 'CONCLUIDA', descricao: 'Atualização de firmware SSD', tecnicoRespónsável: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observações: 'Disco com 87% de saúde', dataCadastro: '2024-05-20T09:00:00', dataConclusao: '2024-05-20T11:30:00' },
-    { id: 4, computadorId: 13, computadorNome: 'PC-PRD-003', tipó: 'PREVENTIVA', status: 'PENDENTE', descricao: 'Limpeza preventiva trimestral', tecnicoRespónsável: 'Maria Ferreira', pecasTrocadas: 'Filtro de pó', observações: 'Equipamento de produção', dataCadastro: '2024-06-01T07:00:00', dataConclusao: null },
-    { id: 5, computadorId: 15, computadorNome: 'PC-ALM-001', tipó: 'CORRETIVA', status: 'EM_ANDAMENTO', descricao: 'Substituição de HD danificado pór SSD', tecnicoRespónsável: 'Roberto Alves', pecasTrocadas: 'SSD Kingston A400 240GB', observações: 'Backup realizado', dataCadastro: '2024-06-08T10:00:00', dataConclusao: null },
-    { id: 6, computadorId: 1, computadorNome: 'PC-ADM-001', tipó: 'PREVENTIVA', status: 'CONCLUIDA', descricao: 'Atualização de BIOS', tecnicoRespónsável: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observações: 'BIOS atualizada v1.3 para v1.5', dataCadastro: '2024-05-15T14:00:00', dataConclusao: '2024-05-15T15:00:00' },
-    { id: 7, computadorId: 2, computadorNome: 'PC-ADM-002', tipó: 'CORRETIVA', status: 'CANCELADA', descricao: 'Substituição de teclado', tecnicoRespónsável: 'Maria Ferreira', pecasTrocadas: 'Teclado USB ABNT2', observações: 'Cancelado', dataCadastro: '2024-05-10T11:00:00', dataConclusao: null },
-    { id: 8, computadorId: 9, computadorNome: 'PC-VEN-001', tipó: 'EMERGENCIAL', status: 'CONCLUIDA', descricao: 'Remoção de malware e formatação', tecnicoRespónsável: 'Roberto Alves', pecasTrocadas: 'Nenhuma', observações: 'Sistema reinstalado com Windows 11 Pro', dataCadastro: '2024-05-25T08:30:00', dataConclusao: '2024-05-26T17:00:00' },
-    { id: 9, computadorId: 5, computadorNome: 'PC-TI-001', tipó: 'PREDITIVA', status: 'EM_ANDAMENTO', descricao: 'Teste de estresse na memoria RAM', tecnicoRespónsável: 'Carlos Mendes', pecasTrocadas: '', observações: 'Rodando MemTest86 pór 4 horas', dataCadastro: '2024-06-11T09:00:00', dataConclusao: null },
-    { id: 10, computadorId: 6, computadorNome: 'PC-FIN-001', tipó: 'PREVENTIVA', status: 'PENDENTE', descricao: 'Instalação de updates acumulados', tecnicoRespónsável: 'Maria Ferreira', pecasTrocadas: 'Nenhuma', observações: 'Agendar para horário de almoço', dataCadastro: '2024-06-13T08:00:00', dataConclusao: null },
-    { id: 11, computadorId: 10, computadorNome: 'PC-VEN-002', tipó: 'CORRETIVA', status: 'CONCLUIDA', descricao: 'Reparo no ventilador cooling', tecnicoRespónsável: 'Roberto Alves', pecasTrocadas: 'Cooler fan 80mm', observações: 'Equipamento operando normalmente', dataCadastro: '2024-05-18T13:00:00', dataConclusao: '2024-05-18T15:30:00' },
-    { id: 12, computadorId: 8, computadorNome: 'PC-RH-001', tipó: 'PREDITIVA', status: 'CONCLUIDA', descricao: 'Otimização do Windows e desfragmentação do SSD', tecnicoRespónsável: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observações: 'Boot reduzido de 45s para 18s', dataCadastro: '2024-05-22T16:00:00', dataConclusao: '2024-05-22T18:00:00' }
+    { id: 1, computadorId: 3, computadorNome: 'PC-LOG-001', tipo: 'PREVENTIVA', status: 'EM_ANDAMENTO', descricao: 'Troca de pasta térmica e limpeza geral', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Pasta térmica Artic MX-5', observacoes: 'Agendado para manhã', dataCadastro: '2024-06-10T08:00:00', dataConclusao: null },
+    { id: 2, computadorId: 4, computadorNome: 'PC-LOG-002', tipo: 'EMERGENCIAL', status: 'PENDENTE', descricao: 'PC não liga. Verificar fonte e placa mãe', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: '', observacoes: 'Prioridade alta', dataCadastro: '2024-06-12T14:30:00', dataConclusao: null },
+    { id: 3, computadorId: 7, computadorNome: 'PC-FIN-002', tipo: 'PREDITIVA', status: 'CONCLUIDA', descricao: 'Atualização de firmware SSD', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observacoes: 'Disco com 87% de saúde', dataCadastro: '2024-05-20T09:00:00', dataConclusao: '2024-05-20T11:30:00' },
+    { id: 4, computadorId: 13, computadorNome: 'PC-PRD-003', tipo: 'PREVENTIVA', status: 'PENDENTE', descricao: 'Limpeza preventiva trimestral', tecnicoResponsavel: 'Maria Ferreira', pecasTrocadas: 'Filtro de pó', observacoes: 'Equipamento de produção', dataCadastro: '2024-06-01T07:00:00', dataConclusao: null },
+    { id: 5, computadorId: 15, computadorNome: 'PC-ALM-001', tipo: 'CORRETIVA', status: 'EM_ANDAMENTO', descricao: 'Substituição de HD danificado por SSD', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: 'SSD Kingston A400 240GB', observacoes: 'Backup realizado', dataCadastro: '2024-06-08T10:00:00', dataConclusao: null },
+    { id: 6, computadorId: 1, computadorNome: 'PC-ADM-001', tipo: 'PREVENTIVA', status: 'CONCLUIDA', descricao: 'Atualização de BIOS', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observacoes: 'BIOS atualizada v1.3 para v1.5', dataCadastro: '2024-05-15T14:00:00', dataConclusao: '2024-05-15T15:00:00' },
+    { id: 7, computadorId: 2, computadorNome: 'PC-ADM-002', tipo: 'CORRETIVA', status: 'CANCELADA', descricao: 'Substituição de teclado', tecnicoResponsavel: 'Maria Ferreira', pecasTrocadas: 'Teclado USB ABNT2', observacoes: 'Cancelado', dataCadastro: '2024-05-10T11:00:00', dataConclusao: null },
+    { id: 8, computadorId: 9, computadorNome: 'PC-VEN-001', tipo: 'EMERGENCIAL', status: 'CONCLUIDA', descricao: 'Remoção de malware e formatação', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: 'Nenhuma', observacoes: 'Sistema reinstalado com Windows 11 Pro', dataCadastro: '2024-05-25T08:30:00', dataConclusao: '2024-05-26T17:00:00' },
+    { id: 9, computadorId: 5, computadorNome: 'PC-TI-001', tipo: 'PREDITIVA', status: 'EM_ANDAMENTO', descricao: 'Teste de estresse na memoria RAM', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: '', observacoes: 'Rodando MemTest86 por 4 horas', dataCadastro: '2024-06-11T09:00:00', dataConclusao: null },
+    { id: 10, computadorId: 6, computadorNome: 'PC-FIN-001', tipo: 'PREVENTIVA', status: 'PENDENTE', descricao: 'Instalação de updates acumulados', tecnicoResponsavel: 'Maria Ferreira', pecasTrocadas: 'Nenhuma', observacoes: 'Agendar para horário de almoço', dataCadastro: '2024-06-13T08:00:00', dataConclusao: null },
+    { id: 11, computadorId: 10, computadorNome: 'PC-VEN-002', tipo: 'CORRETIVA', status: 'CONCLUIDA', descricao: 'Reparo no ventilador cooling', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: 'Cooler fan 80mm', observacoes: 'Equipamento operaçãondo normalmente', dataCadastro: '2024-05-18T13:00:00', dataConclusao: '2024-05-18T15:30:00' },
+    { id: 12, computadorId: 8, computadorNome: 'PC-RH-001', tipo: 'PREDITIVA', status: 'CONCLUIDA', descricao: 'Otimização do Windows e desfragmentação do SSD', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observacoes: 'Boot reduzido de 45s para 18s', dataCadastro: '2024-05-22T16:00:00', dataConclusao: '2024-05-22T18:00:00' }
 ];
 
 var MOCK_ORDENS = [
-    { id: 1, titulo: 'Instalar software de controle de acesso', descricao: 'Instalar BioAccess v3.0 nos PCs da recepção.', computadorId: 2, computadorNome: 'PC-ADM-002', prioridade: 'ALTA', status: 'EM_EXECUCAO', solicitante: 'Gerencia de TI', tecnicoRespónsável: 'Joao Pedro', dataAbertura: '2024-06-10T09:00:00', dataPrevisão: '2024-06-20T17:00:00', dataConclusao: null, solução: null },
-    { id: 2, titulo: 'Migração de dados para novo servidor', descricao: 'Transferir dados para novo storage NAS.', computadorId: null, computadorNome: '-', prioridade: 'CRITICA', status: 'EM_ANALISE', solicitante: 'Diretor de TI', tecnicoRespónsável: 'Joao Pedro', dataAbertura: '2024-06-08T14:00:00', dataPrevisão: '2024-06-25T17:00:00', dataConclusao: null, solução: null },
-    { id: 3, titulo: 'Substituir monitor com dead pixels', descricao: 'Monitor do PC-ADM-001 com dead pixels.', computadorId: 1, computadorNome: 'PC-ADM-001', prioridade: 'BAIXA', status: 'ABERTA', solicitante: 'Carlos Silva', tecnicoRespónsável: '', dataAbertura: '2024-06-12T10:00:00', dataPrevisão: '2024-06-30T17:00:00', dataConclusao: null, solução: null },
-    { id: 4, titulo: 'Configuração de impressora em rede', descricao: 'Configurar HP LaserJet Pro M404dn.', computadorId: 6, computadorNome: 'PC-FIN-001', prioridade: 'MEDIA', status: 'CONCLUIDA', solicitante: 'Fernanda Lima', tecnicoRespónsável: 'Roberto Alves', dataAbertura: '2024-06-01T08:00:00', dataPrevisão: '2024-06-05T17:00:00', dataConclusao: '2024-06-03T16:00:00', solução: 'Impressora configurada com IP estático.' },
-    { id: 5, titulo: 'Atualizar BIOS de todos PCs Dell', descricao: 'Verificar e atualizar BIOS de equipamentos Dell.', computadorId: null, computadorNome: '-', prioridade: 'MEDIA', status: 'ABERTA', solicitante: 'Carlos Mendes', tecnicoRespónsável: '', dataAbertura: '2024-06-11T11:00:00', dataPrevisão: '2024-07-15T17:00:00', dataConclusao: null, solução: null },
-    { id: 6, titulo: 'Corrigir falha de rede no PC-LOG-002', descricao: 'PC com desconexões frequentes da rede.', computadorId: 4, computadorNome: 'PC-LOG-002', prioridade: 'ALTA', status: 'EM_EXECUCAO', solicitante: 'Maria Oliveira', tecnicoRespónsável: 'Carlos Mendes', dataAbertura: '2024-06-09T08:30:00', dataPrevisão: '2024-06-15T17:00:00', dataConclusao: null, solução: null },
-    { id: 7, titulo: 'Instalar antiviruses nos novos PCs', descricao: 'Instalar Kaspersky nos 5 novos PCs.', computadorId: 15, computadorNome: 'PC-ALM-001', prioridade: 'ALTA', status: 'ABERTA', solicitante: 'Auxiliar Almox', tecnicoRespónsável: '', dataAbertura: '2024-06-13T09:00:00', dataPrevisão: '2024-06-18T17:00:00', dataConclusao: null, solução: null },
-    { id: 8, titulo: 'Migrar Windows 10 para Windows 11', descricao: 'Atualizar OS de 3 PCs elegíveis.', computadorId: 14, computadorNome: 'PC-ADM-003', prioridade: 'BAIXA', status: 'CANCELADA', solicitante: 'Gerente TI', tecnicoRespónsável: 'Maria Ferreira', dataAbertura: '2024-05-20T10:00:00', dataPrevisão: '2024-06-10T17:00:00', dataConclusao: null, solução: 'Cancelado - PCs não atendem TPM 2.0.' },
-    { id: 9, titulo: 'Configurar VPN corporativa', descricao: 'Configurar VPN no PC-TI-001.', computadorId: 5, computadorNome: 'PC-TI-001', prioridade: 'CRITICA', status: 'CONCLUIDA', solicitante: 'Joao Pedro', tecnicoRespónsável: 'Joao Pedro', dataAbertura: '2024-06-05T14:00:00', dataPrevisão: '2024-06-07T17:00:00', dataConclusao: '2024-06-06T11:30:00', solução: 'VPN configurada com WireGuard.' },
-    { id: 10, titulo: 'Limpeza geral dos equipamentos', descricao: 'Limpeza preventiva em todos PCs do estoque.', computadorId: null, computadorNome: '-', prioridade: 'MEDIA', status: 'EM_ANALISE', solicitante: 'Supervisor Log', tecnicoRespónsável: '', dataAbertura: '2024-06-12T08:00:00', dataPrevisão: '2024-06-22T17:00:00', dataConclusao: null, solução: null }
+    { id: 1, titulo: 'Instalar software de controle de acesso', descricao: 'Instalar BioAccess v3.0 nos PCs da recepção.', computadorId: 2, computadorNome: 'PC-ADM-002', prioridade: 'ALTA', status: 'EM_EXECUCAO', solicitante: 'Gerencia de TI', tecnicoResponsavel: 'Joao Pedro', dataAbertura: '2024-06-10T09:00:00', dataPrevisao: '2024-06-20T17:00:00', dataConclusao: null, solucao: null },
+    { id: 2, titulo: 'Migração de dados para novo servidor', descricao: 'Transferir dados para novo storage NAS.', computadorId: null, computadorNome: '-', prioridade: 'CRITICA', status: 'EM_ANALISE', solicitante: 'Diretor de TI', tecnicoResponsavel: 'Joao Pedro', dataAbertura: '2024-06-08T14:00:00', dataPrevisao: '2024-06-25T17:00:00', dataConclusao: null, solucao: null },
+    { id: 3, titulo: 'Substituir monitor com dead pixels', descricao: 'Monitor do PC-ADM-001 com dead pixels.', computadorId: 1, computadorNome: 'PC-ADM-001', prioridade: 'BAIXA', status: 'ABERTA', solicitante: 'Carlos Silva', tecnicoResponsavel: '', dataAbertura: '2024-06-12T10:00:00', dataPrevisao: '2024-06-30T17:00:00', dataConclusao: null, solucao: null },
+    { id: 4, titulo: 'Configuração de impressora em rede', descricao: 'Configurar HP LaserJet Pro M404dn.', computadorId: 6, computadorNome: 'PC-FIN-001', prioridade: 'MEDIA', status: 'CONCLUIDA', solicitante: 'Fernanda Lima', tecnicoResponsavel: 'Roberto Alves', dataAbertura: '2024-06-01T08:00:00', dataPrevisao: '2024-06-05T17:00:00', dataConclusao: '2024-06-03T16:00:00', solucao: 'Impressora configurada com IP estático.' },
+    { id: 5, titulo: 'Atualizar BIOS de todos PCs Dell', descricao: 'Verificar e atualizar BIOS de equipamentos Dell.', computadorId: null, computadorNome: '-', prioridade: 'MEDIA', status: 'ABERTA', solicitante: 'Carlos Mendes', tecnicoResponsavel: '', dataAbertura: '2024-06-11T11:00:00', dataPrevisao: '2024-07-15T17:00:00', dataConclusao: null, solucao: null },
+    { id: 6, titulo: 'Corrigir falha de rede no PC-LOG-002', descricao: 'PC com desconexões frequentes da rede.', computadorId: 4, computadorNome: 'PC-LOG-002', prioridade: 'ALTA', status: 'EM_EXECUCAO', solicitante: 'Maria Oliveira', tecnicoResponsavel: 'Carlos Mendes', dataAbertura: '2024-06-09T08:30:00', dataPrevisao: '2024-06-15T17:00:00', dataConclusao: null, solucao: null },
+    { id: 7, titulo: 'Instalar antiviruses nos novos PCs', descricao: 'Instalar Kaspersky nos 5 novos PCs.', computadorId: 15, computadorNome: 'PC-ALM-001', prioridade: 'ALTA', status: 'ABERTA', solicitante: 'Auxiliar Almox', tecnicoResponsavel: '', dataAbertura: '2024-06-13T09:00:00', dataPrevisao: '2024-06-18T17:00:00', dataConclusao: null, solucao: null },
+    { id: 8, titulo: 'Migrar Windows 10 para Windows 11', descricao: 'Atualizar OS de 3 PCs elegíveis.', computadorId: 14, computadorNome: 'PC-ADM-003', prioridade: 'BAIXA', status: 'CANCELADA', solicitante: 'Gerente TI', tecnicoResponsavel: 'Maria Ferreira', dataAbertura: '2024-05-20T10:00:00', dataPrevisao: '2024-06-10T17:00:00', dataConclusao: null, solucao: 'Cancelado - PCs não atendem TPM 2.0.' },
+    { id: 9, titulo: 'Configurar VPN corporativa', descricao: 'Configurar VPN no PC-TI-001.', computadorId: 5, computadorNome: 'PC-TI-001', prioridade: 'CRITICA', status: 'CONCLUIDA', solicitante: 'Joao Pedro', tecnicoResponsavel: 'Joao Pedro', dataAbertura: '2024-06-05T14:00:00', dataPrevisao: '2024-06-07T17:00:00', dataConclusao: '2024-06-06T11:30:00', solucao: 'VPN configurada com WireGuard.' },
+    { id: 10, titulo: 'Limpeza geral dos equipamentos', descricao: 'Limpeza preventiva em todos PCs do estoque.', computadorId: null, computadorNome: '-', prioridade: 'MEDIA', status: 'EM_ANALISE', solicitante: 'Supervisor Log', tecnicoResponsavel: '', dataAbertura: '2024-06-12T08:00:00', dataPrevisao: '2024-06-22T17:00:00', dataConclusao: null, solucao: null }
 ];
 
 var MOCK_USUARIOS = [
@@ -95,8 +95,8 @@ var MOCK_DEPARTAMENTOS = [
 ];
 
 var MOCK_SOFTWARE = [
-    { id: 1, nomeSoftware: 'Microsoft Office 365', fabricante: 'Microsoft', chaveLicença: 'XXXXX-XXXXX-001', tipóLicença: 'PRO', quantidadeTotal: 20, quantidadeUtilizada: 15, dataAquisição: '2024-01-01', dataExpiração: '2025-01-01', observações: '', dataCriacao: '2024-01-15T10:00:00', dataAtualização: '2024-01-15T10:00:00' },
-    { id: 2, nomeSoftware: 'Kaspersky Endpóint', fabricante: 'Kaspersky', chaveLicença: 'XXXXX-XXXXX-002', tipóLicença: 'ENTERPRISE', quantidadeTotal: 50, quantidadeUtilizada: 45, dataAquisição: '2024-03-01', dataExpiração: '2025-03-01', observações: '', dataCriacao: '2024-03-01T10:00:00', dataAtualização: '2024-03-01T10:00:00' }
+    { id: 1, nomeSoftware: 'Microsoft Office 365', fabricante: 'Microsoft', chaveLicenca: 'XXXXX-XXXXX-001', tipoLicenca: 'PRO', quantidadeTotal: 20, quantidadeUtilizada: 15, dataAquisicao: '2024-01-01', dataExpiracao: '2025-01-01', observacoes: '', dataCriacao: '2024-01-15T10:00:00', dataAtualizacao: '2024-01-15T10:00:00' },
+    { id: 2, nomeSoftware: 'Kaspersky Endpoint', fabricante: 'Kaspersky', chaveLicenca: 'XXXXX-XXXXX-002', tipoLicenca: 'ENTERPRISE', quantidadeTotal: 50, quantidadeUtilizada: 45, dataAquisicao: '2024-03-01', dataExpiracao: '2025-03-01', observacoes: '', dataCriacao: '2024-03-01T10:00:00', dataAtualizacao: '2024-03-01T10:00:00' }
 ];
 
 var MOCK_LOGS = [
@@ -115,12 +115,12 @@ function mockAuth(user, pass) {
     return { token: 'mock-token-' + user + '-' + Date.now(), username: user, nomeCompleto: c.nome, perfil: c.perfil, expiresIn: 1800000 };
 }
 
-function syncManutençãoWithComputador(computadorId, manutStatus, manutTipó) {
+function syncManutencaoWithComputador(computadorId, manutStatus, manutTipo) {
     var comp = MOCK_COMPUTADORES.find(function(c) { return c.id === computadorId; });
     if (!comp) return;
     var statusMap = {
-        'PENDENTE': manutTipó === 'EMERGENCIAL' ? 'MANUTENCAO_EMERGENCIAL' : manutTipó === 'PREDITIVA' ? 'MANUTENCAO_PREDITIVA' : 'MANUTENCAO_PREVENTIVA',
-        'EM_ANDAMENTO': manutTipó === 'EMERGENCIAL' ? 'MANUTENCAO_EMERGENCIAL' : manutTipó === 'PREDITIVA' ? 'MANUTENCAO_PREDITIVA' : 'MANUTENCAO_PREVENTIVA',
+        'PENDENTE': manutTipo === 'EMERGENCIAL' ? 'MANUTENCAO_EMERGENCIAL' : manutTipo === 'PREDITIVA' ? 'MANUTENCAO_PREDITIVA' : 'MANUTENCAO_PREVENTIVA',
+        'EM_ANDAMENTO': manutTipo === 'EMERGENCIAL' ? 'MANUTENCAO_EMERGENCIAL' : manutTipo === 'PREDITIVA' ? 'MANUTENCAO_PREDITIVA' : 'MANUTENCAO_PREVENTIVA',
         'CONCLUIDA': 'CONCLUIDO',
         'CANCELADA': 'ATIVO'
     };
@@ -169,32 +169,32 @@ function mockFetch(url, opts) {
         }
     }
 
-    if (url.indexOf('/api/software-licenças') !== -1) {
-        if (method === 'GET' && url.indexOf('/api/software-licenças/') === -1) {
+    if (url.indexOf('/api/software-licencas') !== -1) {
+        if (method === 'GET' && url.indexOf('/api/software-licencas/') === -1) {
             var swPs = new URLSearchParams(url.split('?')[1] || '');
             var swPage = parseInt(swPs.get('page')) || 0;
             var swSize = parseInt(swPs.get('size')) || 10;
             var swContent = MOCK_SOFTWARE.slice(swPage * swSize, (swPage + 1) * swSize);
             return { content: swContent, page: swPage, size: swSize, totalElements: MOCK_SOFTWARE.length, totalPages: Math.ceil(MOCK_SOFTWARE.length / swSize) };
         }
-        if (url.indexOf('/api/software-licenças/') !== -1 && method === 'GET') {
-            var swId = parseInt(url.split('/api/software-licenças/')[1].split('?')[0]);
+        if (url.indexOf('/api/software-licencas/') !== -1 && method === 'GET') {
+            var swId = parseInt(url.split('/api/software-licencas/')[1].split('?')[0]);
             return MOCK_SOFTWARE.find(function(s) { return s.id === swId; }) || null;
         }
         if (method === 'POST') {
             var swNewId = MOCK_SOFTWARE.length > 0 ? Math.max.apply(null, MOCK_SOFTWARE.map(function(s) { return s.id; })) + 1 : 1;
-            body.id = swNewId; body.dataCriacao = new Date().toISOString(); body.dataAtualização = new Date().toISOString();
+            body.id = swNewId; body.dataCriacao = new Date().toISOString(); body.dataAtualizacao = new Date().toISOString();
             MOCK_SOFTWARE.push(body);
             return body;
         }
-        if (url.indexOf('/api/software-licenças/') !== -1 && method === 'PUT') {
-            var swUpId = parseInt(url.split('/api/software-licenças/')[1]);
+        if (url.indexOf('/api/software-licencas/') !== -1 && method === 'PUT') {
+            var swUpId = parseInt(url.split('/api/software-licencas/')[1]);
             var swIdx = MOCK_SOFTWARE.findIndex(function(s) { return s.id === swUpId; });
             if (swIdx !== -1) { Object.assign(MOCK_SOFTWARE[swIdx], body); return MOCK_SOFTWARE[swIdx]; }
             return null;
         }
-        if (url.indexOf('/api/software-licenças/') !== -1 && method === 'DELETE') {
-            MOCK_SOFTWARE = MOCK_SOFTWARE.filter(function(s) { return s.id !== parseInt(url.split('/api/software-licenças/')[1]); });
+        if (url.indexOf('/api/software-licencas/') !== -1 && method === 'DELETE') {
+            MOCK_SOFTWARE = MOCK_SOFTWARE.filter(function(s) { return s.id !== parseInt(url.split('/api/software-licencas/')[1]); });
             return {};
         }
     }
@@ -203,12 +203,12 @@ function mockFetch(url, opts) {
         if (url.indexOf('/api/logs/recentes') !== -1) return MOCK_LOGS.slice(0, parseInt(new URLSearchParams(url.split('?')[1] || '').get('limit') || '10'));
         if (method === 'GET' && url.indexOf('/api/logs/') === -1) {
             var psL = new URLSearchParams(url.split('?')[1] || '');
-            var lUsuárioF = psL.get('usuario') || '';
+            var lUsuarioF = psL.get('usuario') || '';
             var lEntidadeF = psL.get('entidade') || '';
             var lPage = parseInt(psL.get('page')) || 0;
             var lSize = parseInt(psL.get('size')) || 10;
             var lFiltered = MOCK_LOGS.filter(function(l) {
-                if (lUsuárioF && l.usuario.toLowerCase().indexOf(lUsuárioF.toLowerCase()) === -1) return false;
+                if (lUsuarioF && l.usuario.toLowerCase().indexOf(lUsuarioF.toLowerCase()) === -1) return false;
                 if (lEntidadeF && l.entidade !== lEntidadeF) return false;
                 return true;
             });
@@ -218,30 +218,30 @@ function mockFetch(url, opts) {
     }
 
     if (url.indexOf('/api/computadores/export/csv') !== -1 && method === 'GET') return { message: 'CSV export simulated', count: MOCK_COMPUTADORES.length };
-    if (url.indexOf('/api/computadores/impórt/csv') !== -1 && method === 'POST') return { impórtados: MOCK_COMPUTADORES.length, ignorados: 0, erros: 0 };
+    if (url.indexOf('/api/computadores/import/csv') !== -1 && method === 'POST') return { importados: MOCK_COMPUTADORES.length, ignorados: 0, erros: 0 };
 
-    if (url.indexOf('/api/computadores/estatísticas') !== -1) {
+    if (url.indexOf('/api/computadores/estatisticas') !== -1) {
         var ativos = MOCK_COMPUTADORES.filter(function(c) { return c.status === 'ATIVO'; }).length;
         var pred = MOCK_COMPUTADORES.filter(function(c) { return c.status === 'MANUTENCAO_PREDITIVA'; }).length;
         var prev = MOCK_COMPUTADORES.filter(function(c) { return c.status === 'MANUTENCAO_PREVENTIVA'; }).length;
         var emerg = MOCK_COMPUTADORES.filter(function(c) { return c.status === 'MANUTENCAO_EMERGENCIAL'; }).length;
         var concl = MOCK_COMPUTADORES.filter(function(c) { return c.status === 'CONCLUIDO'; }).length;
-        return { total: MOCK_COMPUTADORES.length, ativos: ativos, manutençãoPreditiva: pred, manutençãoPreventiva: prev, manutençãoEmergencial: emerg, concluidos: concl, manutençãoVencida: 2, pórStatus: { ATIVO: ativos, MANUTENCAO_PREDITIVA: pred, MANUTENCAO_PREVENTIVA: prev, MANUTENCAO_EMERGENCIAL: emerg, CONCLUIDO: concl } };
+        return { total: MOCK_COMPUTADORES.length, ativos: ativos, manutencaoPreditiva: pred, manutencaoPreventiva: prev, manutencaoEmergencial: emerg, concluidos: concl, manutencaoVencida: 2, porStatus: { ATIVO: ativos, MANUTENCAO_PREDITIVA: pred, MANUTENCAO_PREVENTIVA: prev, MANUTENCAO_EMERGENCIAL: emerg, CONCLUIDO: concl } };
     }
 
-    if (url.indexOf('/api/manutenções/estatísticas') !== -1) {
+    if (url.indexOf('/api/manutencoes/estatisticas') !== -1) {
         var pend = MOCK_MANUTENCOES.filter(function(m) { return m.status === 'PENDENTE'; }).length;
         var andam = MOCK_MANUTENCOES.filter(function(m) { return m.status === 'EM_ANDAMENTO'; }).length;
         var conc = MOCK_MANUTENCOES.filter(function(m) { return m.status === 'CONCLUIDA'; }).length;
-        return { total: MOCK_MANUTENCOES.length, pendentes: pend, emAndamento: andam, concluidas: conc, canceladas: MOCK_MANUTENCOES.length - pend - andam - conc, pórTipó: { CORRETIVA: 3, PREVENTIVA: 4, PREDITIVA: 3, EMERGENCIAL: 2 } };
+        return { total: MOCK_MANUTENCOES.length, pendentes: pend, emAndamento: andam, concluidas: conc, canceladas: MOCK_MANUTENCOES.length - pend - andam - conc, porTipo: { CORRETIVA: 3, PREVENTIVA: 4, PREDITIVA: 3, EMERGENCIAL: 2 } };
     }
 
-    if (url.indexOf('/api/ordens-serviço/estatísticas') !== -1) {
+    if (url.indexOf('/api/ordens-servico/estatisticas') !== -1) {
         var ab = MOCK_ORDENS.filter(function(o) { return o.status === 'ABERTA'; }).length;
         var ea = MOCK_ORDENS.filter(function(o) { return o.status === 'EM_ANALISE'; }).length;
         var ee = MOCK_ORDENS.filter(function(o) { return o.status === 'EM_EXECUCAO'; }).length;
         var co = MOCK_ORDENS.filter(function(o) { return o.status === 'CONCLUIDA'; }).length;
-        return { total: MOCK_ORDENS.length, abertas: ab, emAnalise: ea, emExecução: ee, concluidas: co, canceladas: MOCK_ORDENS.length - ab - ea - ee - co, pórPrioridade: { BAIXA: 2, MEDIA: 3, ALTA: 3, CRITICA: 2 } };
+        return { total: MOCK_ORDENS.length, abertas: ab, emAnalise: ea, emExecucao: ee, concluidas: co, canceladas: MOCK_ORDENS.length - ab - ea - ee - co, porPrioridade: { BAIXA: 2, MEDIA: 3, ALTA: 3, CRITICA: 2 } };
     }
 
     if (url.indexOf('/api/computadores/paginado') !== -1) {
@@ -252,7 +252,7 @@ function mockFetch(url, opts) {
         var size = parseInt(ps.get('size')) || 12;
         var filtered = MOCK_COMPUTADORES.filter(function(c) {
             if (statusF && c.status !== statusF) return false;
-            if (termo && (c.nomePc.toLowerCase().indexOf(termo) === -1 && c.modeloMarca.toLowerCase().indexOf(termo) === -1 && c.usuarioDesignado.toLowerCase().indexOf(termo) === -1 && c.númeroSérie.toLowerCase().indexOf(termo) === -1)) return false;
+            if (termo && (c.nomePc.toLowerCase().indexOf(termo) === -1 && c.modeloMarca.toLowerCase().indexOf(termo) === -1 && c.usuarioDesignado.toLowerCase().indexOf(termo) === -1 && c.numeroSerie.toLowerCase().indexOf(termo) === -1)) return false;
             return true;
         });
         var start = page * size;
@@ -289,97 +289,97 @@ function mockFetch(url, opts) {
         return { atualizados: count };
     }
 
-    if (url.indexOf('/api/manutenções') !== -1 && url.indexOf('estatísticas') === -1) {
+    if (url.indexOf('/api/manutencoes') !== -1 && url.indexOf('estatisticas') === -1) {
         var ps2 = new URLSearchParams(url.split('?')[1] || '');
         var stF = ps2.get('status') || '';
         var pg = parseInt(ps2.get('page')) || 0;
         var sz = parseInt(ps2.get('size')) || 10;
-        if (method === 'GET' && url.indexOf('/api/manutenções/') === -1) {
+        if (method === 'GET' && url.indexOf('/api/manutencoes/') === -1) {
             var mf = MOCK_MANUTENCOES.filter(function(m) { return !stF || m.status === stF; });
             var ms = pg * sz;
             return { content: mf.slice(ms, ms + sz), totalElements: mf.length, totalPages: Math.ceil(mf.length / sz), number: pg, size: sz };
         }
-        if (url.indexOf('/api/manutenções/') !== -1 && method === 'GET') {
-            return MOCK_MANUTENCOES.find(function(m) { return m.id === parseInt(url.split('/api/manutenções/')[1]); }) || null;
+        if (url.indexOf('/api/manutencoes/') !== -1 && method === 'GET') {
+            return MOCK_MANUTENCOES.find(function(m) { return m.id === parseInt(url.split('/api/manutencoes/')[1]); }) || null;
         }
         if (method === 'POST') {
             body.id = MOCK_MANUTENCOES.length > 0 ? Math.max.apply(null, MOCK_MANUTENCOES.map(function(m) { return m.id; })) + 1 : 1;
             var comp = MOCK_COMPUTADORES.find(function(c) { return c.id === body.computadorId; });
             body.computadorNome = comp ? comp.nomePc : '-'; body.dataCadastro = new Date().toISOString(); body.dataConclusao = null;
             MOCK_MANUTENCOES.push(body);
-            syncManutençãoWithComputador(body.computadorId, body.status, body.tipó);
+            syncManutencaoWithComputador(body.computadorId, body.status, body.tipo);
             return body;
         }
-        if (url.indexOf('/api/manutenções/') !== -1 && method === 'PUT') {
-            var muId = parseInt(url.split('/api/manutenções/')[1]);
+        if (url.indexOf('/api/manutencoes/') !== -1 && method === 'PUT') {
+            var muId = parseInt(url.split('/api/manutencoes/')[1]);
             var mi = MOCK_MANUTENCOES.findIndex(function(m) { return m.id === muId; });
             if (mi !== -1) {
                 var prevStatus = MOCK_MANUTENCOES[mi].status;
                 Object.assign(MOCK_MANUTENCOES[mi], body);
                 if (body.status && body.status !== prevStatus) {
-                    syncManutençãoWithComputador(MOCK_MANUTENCOES[mi].computadorId, body.status, MOCK_MANUTENCOES[mi].tipó);
+                    syncManutencaoWithComputador(MOCK_MANUTENCOES[mi].computadorId, body.status, MOCK_MANUTENCOES[mi].tipo);
                     if (body.status === 'CONCLUIDA') MOCK_MANUTENCOES[mi].dataConclusao = new Date().toISOString();
                 }
                 return MOCK_MANUTENCOES[mi];
             }
             return null;
         }
-        if (url.indexOf('/api/manutenções/') !== -1 && method === 'DELETE') {
-            MOCK_MANUTENCOES = MOCK_MANUTENCOES.filter(function(m) { return m.id !== parseInt(url.split('/api/manutenções/')[1]); });
+        if (url.indexOf('/api/manutencoes/') !== -1 && method === 'DELETE') {
+            MOCK_MANUTENCOES = MOCK_MANUTENCOES.filter(function(m) { return m.id !== parseInt(url.split('/api/manutencoes/')[1]); });
             return {};
         }
     }
 
-    if (url.indexOf('/api/ordens-serviço') !== -1) {
+    if (url.indexOf('/api/ordens-servico') !== -1) {
         var ps3 = new URLSearchParams(url.split('?')[1] || '');
         var stF3 = ps3.get('status') || '';
         var prF = ps3.get('prioridade') || '';
         var pg3 = parseInt(ps3.get('page')) || 0;
         var sz3 = parseInt(ps3.get('size')) || 10;
-        if (method === 'GET' && url.indexOf('/api/ordens-serviço/') === -1) {
+        if (method === 'GET' && url.indexOf('/api/ordens-servico/') === -1) {
             var of3 = MOCK_ORDENS.filter(function(o) { return (!stF3 || o.status === stF3) && (!prF || o.prioridade === prF); });
             var os3 = pg3 * sz3;
             return { content: of3.slice(os3, os3 + sz3), totalElements: of3.length, totalPages: Math.ceil(of3.length / sz3), number: pg3, size: sz3 };
         }
-        if (url.indexOf('/api/ordens-serviço/') !== -1 && method === 'GET') {
-            return MOCK_ORDENS.find(function(o) { return o.id === parseInt(url.split('/api/ordens-serviço/')[1]); }) || null;
+        if (url.indexOf('/api/ordens-servico/') !== -1 && method === 'GET') {
+            return MOCK_ORDENS.find(function(o) { return o.id === parseInt(url.split('/api/ordens-servico/')[1]); }) || null;
         }
         if (method === 'POST') {
             body.id = MOCK_ORDENS.length > 0 ? Math.max.apply(null, MOCK_ORDENS.map(function(o) { return o.id; })) + 1 : 1;
             var comp2 = MOCK_COMPUTADORES.find(function(c) { return c.id === body.computadorId; });
-            body.computadorNome = comp2 ? comp2.nomePc : '-'; body.dataAbertura = new Date().toISOString(); body.dataConclusao = null; body.solução = null;
+            body.computadorNome = comp2 ? comp2.nomePc : '-'; body.dataAbertura = new Date().toISOString(); body.dataConclusao = null; body.solucao = null;
             MOCK_ORDENS.push(body); return body;
         }
-        if (url.indexOf('/api/ordens-serviço/') !== -1 && method === 'PUT') {
-            var ouId = parseInt(url.split('/api/ordens-serviço/')[1]);
+        if (url.indexOf('/api/ordens-servico/') !== -1 && method === 'PUT') {
+            var ouId = parseInt(url.split('/api/ordens-servico/')[1]);
             var oi2 = MOCK_ORDENS.findIndex(function(o) { return o.id === ouId; });
             if (oi2 !== -1) { Object.assign(MOCK_ORDENS[oi2], body); return MOCK_ORDENS[oi2]; }
             return null;
         }
-        if (url.indexOf('/api/ordens-serviço/') !== -1 && method === 'DELETE') {
-            MOCK_ORDENS = MOCK_ORDENS.filter(function(o) { return o.id !== parseInt(url.split('/api/ordens-serviço/')[1]); });
+        if (url.indexOf('/api/ordens-servico/') !== -1 && method === 'DELETE') {
+            MOCK_ORDENS = MOCK_ORDENS.filter(function(o) { return o.id !== parseInt(url.split('/api/ordens-servico/')[1]); });
             return {};
         }
     }
 
-    if (url.indexOf('/api/usuários') !== -1) {
-        if (method === 'GET' && url.indexOf('/api/usuários/') === -1) return MOCK_USUARIOS;
-        if (url.indexOf('/api/usuários/') !== -1 && method === 'GET') {
-            return MOCK_USUARIOS.find(function(u) { return u.id === parseInt(url.split('/api/usuários/')[1]); }) || null;
+    if (url.indexOf('/api/usuarios') !== -1) {
+        if (method === 'GET' && url.indexOf('/api/usuarios/') === -1) return MOCK_USUARIOS;
+        if (url.indexOf('/api/usuarios/') !== -1 && method === 'GET') {
+            return MOCK_USUARIOS.find(function(u) { return u.id === parseInt(url.split('/api/usuarios/')[1]); }) || null;
         }
         if (method === 'POST') {
             body.id = MOCK_USUARIOS.length > 0 ? Math.max.apply(null, MOCK_USUARIOS.map(function(u) { return u.id; })) + 1 : 1;
             body.ativo = true; body.dataCadastro = new Date().toISOString();
             MOCK_USUARIOS.push(body); return body;
         }
-        if (url.indexOf('/api/usuários/') !== -1 && method === 'PUT') {
-            var uuId = parseInt(url.split('/api/usuários/')[1]);
+        if (url.indexOf('/api/usuarios/') !== -1 && method === 'PUT') {
+            var uuId = parseInt(url.split('/api/usuarios/')[1]);
             var ui2 = MOCK_USUARIOS.findIndex(function(u) { return u.id === uuId; });
             if (ui2 !== -1) { Object.assign(MOCK_USUARIOS[ui2], body); return MOCK_USUARIOS[ui2]; }
             return null;
         }
-        if (url.indexOf('/api/usuários/') !== -1 && method === 'DELETE') {
-            MOCK_USUARIOS = MOCK_USUARIOS.filter(function(u) { return u.id !== parseInt(url.split('/api/usuários/')[1]); });
+        if (url.indexOf('/api/usuarios/') !== -1 && method === 'DELETE') {
+            MOCK_USUARIOS = MOCK_USUARIOS.filter(function(u) { return u.id !== parseInt(url.split('/api/usuarios/')[1]); });
             return {};
         }
     }
@@ -451,13 +451,13 @@ function connectWs() {
             if (_wsReconnectTimer) { clearTimeout(_wsReconnectTimer); _wsReconnectTimer = null; }
 
             _wsClient.subscribe('/topic/computadores', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
-            _wsClient.subscribe('/topic/manutenções', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
-            _wsClient.subscribe('/topic/ordens-serviço', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
+            _wsClient.subscribe('/topic/manutencoes', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
+            _wsClient.subscribe('/topic/ordens-servico', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
             _wsClient.subscribe('/topic/checkin-checkout', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
             _wsClient.subscribe('/topic/departamentos', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
-            _wsClient.subscribe('/topic/usuários', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
+            _wsClient.subscribe('/topic/usuarios', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
             _wsClient.subscribe('/topic/logs', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse:', e); } });
-            _wsClient.subscribe('/topic/software-licenças', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse software-licenças:', e); } });
+            _wsClient.subscribe('/topic/software-licencas', function(msg) { try { handleWsEvent(JSON.parse(msg.body)); } catch(e) { console.warn('[WS] Erro parse software-licencas:', e); } });
         }, function() {
             _wsConnected = false;
             console.warn('[WS] Desconectado. Reconectando em 5s...');
@@ -488,51 +488,51 @@ function scheduleReconnect() {
 
 function handleWsEvent(event) {
     if (!event || !event.acao) return;
-    var tipó = event.tipó;
+    var tipo = event.tipo;
     var acao = event.acao;
     var dados = event.dados || {};
     var toastMsg = '';
     var toastType = 'info';
 
-    if (tipó === 'COMPUTADOR') {
+    if (tipo === 'COMPUTADOR') {
         if (acao === 'CRIACAO') { toastMsg = 'Novo computador: ' + (dados.nomePc || ''); toastType = 'success'; }
-        else if (acao === 'ALTERACAO') { toastMsg = 'Computador atualizado pór outro usuario: ' + (dados.nomePc || ''); toastType = 'info'; }
+        else if (acao === 'ALTERACAO') { toastMsg = 'Computador atualizado por outro usuario: ' + (dados.nomePc || ''); toastType = 'info'; }
         else if (acao === 'EXCLUSAO') { toastMsg = 'Computador removido (ID: ' + (dados.id || '') + ')'; toastType = 'warning'; }
         else if (acao === 'ALTERACAO_EM_MASSA') { toastMsg = (dados.total || 0) + ' computadores atualizados em massa'; toastType = 'info'; }
         else if (acao === 'EXCLUSAO_EM_MASSA') { toastMsg = (dados.total || 0) + ' computadores excluídos em massa'; toastType = 'warning'; }
-        else if (acao === 'IMPORTACAO') { toastMsg = (dados.total || 0) + ' computadores impórtados via CSV'; toastType = 'success'; }
-        refreshCurrentSection(tipó);
-    } else if (tipó === 'MANUTENCAO') {
+        else if (acao === 'IMPORTACAO') { toastMsg = (dados.total || 0) + ' computadores importados via CSV'; toastType = 'success'; }
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'MANUTENCAO') {
         if (acao === 'CRIACAO') { toastMsg = 'Nova manutenção criada'; toastType = 'success'; }
         else if (acao === 'ALTERACAO') { toastMsg = 'Manutenção atualizada'; toastType = 'info'; }
         else if (acao === 'EXCLUSAO') { toastMsg = 'Manutenção excluída'; toastType = 'warning'; }
-        refreshCurrentSection(tipó);
-    } else if (tipó === 'ORDEM_SERVICO') {
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'ORDEM_SERVICO') {
         if (acao === 'CRIACAO') { toastMsg = 'Nova OS criada: ' + (dados.titulo || ''); toastType = 'success'; }
         else if (acao === 'ALTERACAO') { toastMsg = 'OS atualizada: ' + (dados.titulo || ''); toastType = 'info'; }
         else if (acao === 'EXCLUSAO') { toastMsg = 'OS excluída'; toastType = 'warning'; }
-        refreshCurrentSection(tipó);
-    } else if (tipó === 'CHECKIN_CHECKOUT') {
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'CHECKIN_CHECKOUT') {
         if (acao === 'CHECKOUT') { toastMsg = 'Checkout realizado'; toastType = 'info'; }
         else if (acao === 'CHECKIN') { toastMsg = 'Checkin realizado'; toastType = 'success'; }
-        refreshCurrentSection(tipó);
-    } else if (tipó === 'DEPARTAMENTO') {
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'DEPARTAMENTO') {
         if (acao === 'CRIACAO') { toastMsg = 'Setor criado: ' + (dados.nome || ''); toastType = 'success'; }
         else if (acao === 'ALTERACAO') { toastMsg = 'Setor atualizado'; toastType = 'info'; }
         else if (acao === 'EXCLUSAO') { toastMsg = 'Setor excluído'; toastType = 'warning'; }
-        refreshCurrentSection(tipó);
-    } else if (tipó === 'USUARIO') {
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'USUARIO') {
         if (acao === 'CRIACAO') { toastMsg = 'Usuário criado: ' + (dados.username || ''); toastType = 'success'; }
         else if (acao === 'ALTERACAO') { toastMsg = 'Usuário atualizado'; toastType = 'info'; }
         else if (acao === 'EXCLUSAO') { toastMsg = 'Usuário excluído'; toastType = 'warning'; }
-        refreshCurrentSection(tipó);
-    } else if (tipó === 'LOG') {
-        refreshCurrentSection(tipó);
-    } else if (tipó === 'SOFTWARE_LICENCA') {
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'LOG') {
+        refreshCurrentSection(tipo);
+    } else if (tipo === 'SOFTWARE_LICENCA') {
         if (acao === 'CRIACAO') { toastMsg = 'Software/licenca cadastrado: ' + (dados.nomeSoftware || ''); toastType = 'success'; }
         else if (acao === 'ALTERACAO') { toastMsg = 'Software/licenca atualizado'; toastType = 'info'; }
         else if (acao === 'EXCLUSAO') { toastMsg = 'Software/licenca removido'; toastType = 'warning'; }
-        refreshCurrentSection(tipó);
+        refreshCurrentSection(tipo);
     }
 
     if (toastMsg) showToast(toastMsg, toastType);
@@ -552,13 +552,13 @@ function showSection(id) {
     var t = {
         'painel': ['Dashboard', 'Visão geral do sistema'],
         'computadores': ['Computadores', 'Gerenciamento de computadores'],
-        'manutenções': ['Manutenções', 'Controle de manutenções'],
-        'ordens-serviço': ['Ordens de Serviço', 'Gestão de OS'],
+        'manutencoes': ['Manutencoes', 'Controle de manutencoes'],
+        'ordens-servico': ['Ordens de Servico', 'Gestao de OS'],
         'departamentos': ['Setores', 'Gestão de setores'],
-        'software-licenças': ['Software/Licenças', 'Gestão de software e licenças'],
-        'logs': ['Histórico', 'Histórico de operações'],
+        'software-licencas': ['Software/Licencas', 'Gestao de software e licencas'],
+        'logs': ['Histórico', 'Histórico de operaçãoções'],
         'relatórios': ['Relatórios', 'Relatório gerencial'],
-        'usuários': ['Usuários', 'Gerenciamento de usuários'],
+        'usuarios': ['Usuarios', 'Gerenciamento de usuarios'],
         'admin': ['Ferramentas', 'Painel administrativo']
     };
     var d = t[id] || ['', ''];
@@ -568,13 +568,13 @@ function showSection(id) {
     switch (id) {
         case 'painel': loadDashboard(); break;
         case 'computadores': loadComputadores(0); break;
-        case 'manutenções': loadManutenções(0); break;
-        case 'ordens-serviço': loadOrdensServiço(0); break;
+        case 'manutencoes': loadManutencoes(0); break;
+        case 'ordens-servico': loadOrdensServico(0); break;
         case 'departamentos': loadDepartamentos(); break;
-        case 'software-licenças': loadSoftwareLicenças(0); break;
+        case 'software-licencas': loadSoftwareLicencas(0); break;
         case 'logs': loadLogs(0); break;
-        case 'relatórios': loadRelatórios(); break;
-        case 'usuários': loadUsuários(); break;
+        case 'relatórios': loadRelatorios(); break;
+        case 'usuarios': loadUsuarios(); break;
         case 'admin': loadAdmin(); break;
     }
     if (window.innerWidth < 1024) { var sb = document.getElementById('sidebar'); if (sb && sb.classList.contains('open')) toggleSidebar(); }
@@ -589,10 +589,10 @@ async function loadAdmin() {
     var elManut = document.getElementById('admin-manut-comps');
     var elStatComps = document.getElementById('admin-stat-comps');
     try {
-        var stats = await apiFetch('/api/computadores/estatísticas');
+        var stats = await apiFetch('/api/computadores/estatisticas');
         var total = stats.total || 0;
         var ativos = stats.ativos || 0;
-        var manut = (stats.manutençãoPreditiva || 0) + (stats.manutençãoPreventiva || 0) + (stats.manutençãoEmergencial || 0);
+        var manut = (stats.manutencaoPreditiva || 0) + (stats.manutencaoPreventiva || 0) + (stats.manutencaoEmergencial || 0);
         if (el) {
             el.innerHTML =
                 '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);"><span>Servidor</span><span style="color:var(--green);font-weight:600;">Online</span></div>' +
@@ -615,15 +615,15 @@ async function loadDashboard() {
     renderSkeletonKpis(7);
     try {
         var r = await Promise.all([
-            apiFetch('/api/computadores/estatísticas').catch(function() { return null; }),
-            apiFetch('/api/manutenções/estatísticas').catch(function() { return null; }),
-            apiFetch('/api/ordens-serviço/estatísticas').catch(function() { return null; }),
+            apiFetch('/api/computadores/estatisticas').catch(function() { return null; }),
+            apiFetch('/api/manutencoes/estatisticas').catch(function() { return null; }),
+            apiFetch('/api/ordens-servico/estatisticas').catch(function() { return null; }),
             apiFetch('/api/computadores/alertas').catch(function() { return null; })
         ]);
         var navTotal = document.getElementById('nav-total');
         if (navTotal && r[0]) navTotal.textContent = r[0].total || 0;
         renderDashboardKpis(r[0], r[1], r[2], r[3]);
-        renderChartStatus(r[0]); renderChartManutenções(r[1]); renderChartOrdens(r[2]); renderAlertas(r[3]);
+        renderChartStatus(r[0]); renderChartManutencoes(r[1]); renderChartOrdens(r[2]); renderAlertas(r[3]);
     } catch (e) { showToast('Erro ao carregar dashboard', 'error'); }
 }
 
@@ -634,9 +634,9 @@ function renderDashboardKpis(eq, man, os, alertas) {
     var k = [
         { i: 'fa-desktop', l: 'Total Computadores', v: eq.total || 0, c: 'cyan', t: 'TOTAL', key: 'dsh-eq-total' },
         { i: 'fa-bolt', l: 'Ativos', v: eq.ativos || 0, c: 'green', t: 'ATIVOS', key: 'dsh-eq-ativos' },
-        { i: 'fa-tools', l: 'Em Manutenção', v: (eq.manutençãoPreditiva || 0) + (eq.manutençãoPreventiva || 0) + (eq.manutençãoEmergencial || 0), c: 'yellow', t: 'MANUT', key: 'dsh-eq-manut' },
+        { i: 'fa-tools', l: 'Em Manutenção', v: (eq.manutencaoPreditiva || 0) + (eq.manutencaoPreventiva || 0) + (eq.manutencaoEmergencial || 0), c: 'yellow', t: 'MANUT', key: 'dsh-eq-manut' },
         { i: 'fa-check-circle', l: 'Concluídos', v: eq.concluidos || 0, c: 'green', t: 'CONCLUIDO', key: 'dsh-eq-concluidos' },
-        { i: 'fa-exclamation-triangle', l: 'Manut. Vencida', v: eq.manutençãoVencida || 0, c: 'red', t: 'VENCIDA', key: 'dsh-man-vencida' },
+        { i: 'fa-exclamation-triangle', l: 'Manut. Vencida', v: eq.manutencaoVencida || 0, c: 'red', t: 'VENCIDA', key: 'dsh-man-vencida' },
         { i: 'fa-clock', l: 'Ciclo Atrasado', v: (eq.faseAtrasado || 0), c: 'red', t: 'ATRASO', key: 'dsh-eq-atraso' },
         { i: 'fa-shield-alt', l: 'Garantia Vencida', v: (alertas.garantiaVencida || []).length, c: 'red', t: 'GARANTIA', key: 'dsh-garantia' },
         { i: 'fa-clipboard-list', l: 'OS Abertas', v: (os.abertas || 0) + (os.emAnalise || 0), c: 'orange', t: 'OS', key: 'dsh-os-abertas' }
@@ -648,7 +648,7 @@ function renderDashboardKpis(eq, man, os, alertas) {
     if (resumo) {
         var rItems = [
             { l: 'Computadores Ativos', v: eq.ativos || 0, c: 'var(--green)' },
-            { l: 'Computadores Inativos', v: (eq.total || 0) - (eq.ativos || 0) - (eq.manutençãoPreditiva || 0) - (eq.manutençãoPreventiva || 0) - (eq.manutençãoEmergencial || 0) - (eq.concluidos || 0), c: 'var(--text-muted)' },
+            { l: 'Computadores Inativos', v: (eq.total || 0) - (eq.ativos || 0) - (eq.manutencaoPreditiva || 0) - (eq.manutencaoPreventiva || 0) - (eq.manutencaoEmergencial || 0) - (eq.concluidos || 0), c: 'var(--text-muted)' },
             { l: 'Manutenções Pendentes', v: man.pendentes || 0, c: 'var(--yellow)' },
             { l: 'Manutenções Em Andamento', v: man.emAndamento || 0, c: 'var(--cyan)' },
             { l: 'Manutenções Concluídas', v: man.concluidas || 0, c: 'var(--green)' },
@@ -717,8 +717,8 @@ function renderKpiDetailPanel(key) {
     } else if (key === 'dsh-os-abertas') {
         title = 'OS Abertas'; icon = 'fa-clipboard-list'; color = 'orange';
         Promise.all([
-            apiFetch('/api/ordens-serviço?page=0&size=100&status=ABERTA'),
-            apiFetch('/api/ordens-serviço?page=0&size=100&status=EM_ANALISE')
+            apiFetch('/api/ordens-servico?page=0&size=100&status=ABERTA'),
+            apiFetch('/api/ordens-servico?page=0&size=100&status=EM_ANALISE')
         ]).then(function(results) {
             var list = [];
             results.forEach(function(d) { list = list.concat(d.content || d || []); });
@@ -786,15 +786,15 @@ function renderKpiDetailHTML(container, title, icon, color, itemsHtml) {
 
 function renderChartStatus(s) {
     var ctx = document.getElementById('chartStatus'); if (!ctx) return; if (ctx._chart) ctx._chart.destroy();
-    var d = (s && s.pórStatus) || {}, lb = Object.keys(d).map(function(k) { return k.replace('MANUTENCAO_', 'Man. ').replace(/_/g, ' '); }), vl = Object.values(d);
+    var d = (s && s.porStatus) || {}, lb = Object.keys(d).map(function(k) { return k.replace('MANUTENCAO_', 'Man. ').replace(/_/g, ' '); }), vl = Object.values(d);
     var palette = [['#7dfce4','#30c8a8','#0affdc'],['#a0f0b0','#50c870','#70ff90'],['#f8e070','#d8b830','#ffe840'],['#f0b060','#d09040','#ffb840'],['#b080f0','#9060d0','#c090ff'],['#f080b0','#d06090','#ff70a0']];
     var cg = lb.map(function(_, i) { var p = palette[i % palette.length]; var g = ctx.getContext('2d').createRadialGradient(90,90,5,90,90,160); g.addColorStop(0,'#ffffff'); g.addColorStop(0.08,p[2]); g.addColorStop(0.25,p[0]); g.addColorStop(0.65,p[0]); g.addColorStop(1,p[1]); return g; });
     ctx._chart = new Chart(ctx, { type: 'doughnut', data: { labels: lb, datasets: [{ data: vl, backgroundColor: cg, borderWidth: 3, borderColor: 'rgba(8,12,24,0.9)', hoverOffset: 10, hoverBorderWidth: 4, hoverBorderColor: 'rgba(0,229,199,0.6)' }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '68%', layout: { padding: 8 }, plugins: { legend: { position: 'bottom', labels: { color: '#8892a8', padding: 14, usePointStyle: true, pointStyle: 'circle', font: { size: 10, family: 'Inter' } } }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', titleColor: '#00e5c7', bodyColor: '#e4e8f1', borderColor: 'rgba(0,229,199,0.25)', borderWidth: 1, cornerRadius: 8, padding: 12, displayColors: true, boxPadding: 4 } } } });
 }
 
-function renderChartManutenções(s) {
-    var ctx = document.getElementById('chartManutenções'); if (!ctx) return; if (ctx._chart) ctx._chart.destroy();
-    var d = (s && s.pórTipó) || {}; var labels = Object.keys(d); var vals = Object.values(d);
+function renderChartManutencoes(s) {
+    var ctx = document.getElementById('chartManutencoes'); if (!ctx) return; if (ctx._chart) ctx._chart.destroy();
+    var d = (s && s.porTipo) || {}; var labels = Object.keys(d); var vals = Object.values(d);
     if (labels.length === 0) { labels = ['Sem dados']; vals = [0]; }
     var palette = [['#7dfce4','#30c8a8','#0affdc'],['#b090f0','#9070d0','#c0a0ff'],['#f080b0','#d06090','#ff70a0'],['#f0b060','#d09040','#ffb840'],['#70e8a0','#40c880','#60ffb0'],['#70b0f0','#5090d0','#60c0ff']];
     var cg = labels.map(function(_, i) { var p = palette[i % palette.length]; var g = ctx.getContext('2d').createRadialGradient(90,90,5,90,90,160); g.addColorStop(0,'#ffffff'); g.addColorStop(0.08,p[2]); g.addColorStop(0.25,p[0]); g.addColorStop(0.65,p[0]); g.addColorStop(1,p[1]); return g; });
@@ -803,7 +803,7 @@ function renderChartManutenções(s) {
 
 function renderChartOrdens(s) {
     var ctx = document.getElementById('chartOrdens'); if (!ctx) return; if (ctx._chart) ctx._chart.destroy();
-    var d = (s && s.pórPrioridade) || {}; var labels = Object.keys(d); var vals = Object.values(d);
+    var d = (s && s.porPrioridade) || {}; var labels = Object.keys(d); var vals = Object.values(d);
     var palette = [['#70e8a0','#40c880','#80ffb0'],['#f8e070','#d8b830','#ffe840'],['#f0b060','#d09040','#ffb840'],['#f080b0','#d06090','#ff70a0'],['#b080f0','#9060d0','#c0a0ff']];
     var cArr = labels.map(function(_, i) { var p = palette[i % palette.length]; var g = ctx.getContext('2d').createLinearGradient(0,0,0,260); g.addColorStop(0,'#ffffff'); g.addColorStop(0.05,p[2]); g.addColorStop(0.15,p[0]); g.addColorStop(0.6,p[0]); g.addColorStop(1,p[1]); return g; });
     ctx._chart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Ordens', data: vals, backgroundColor: cArr, borderRadius: 6, borderSkipped: false, barPercentage: 0.6 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 8 } }, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', titleColor: '#00e5c7', bodyColor: '#e4e8f1', borderColor: 'rgba(0,229,199,0.25)', borderWidth: 1, cornerRadius: 8, padding: 10 } }, scales: { y: { beginAtZero: true, ticks: { color: '#4e5a72', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)', lineWidth: 1 } }, x: { ticks: { color: '#8892a8', font: { size: 10 } }, grid: { display: false } } } } });
@@ -841,7 +841,7 @@ async function loadComputadores(page) {
     renderSkeletonCards(6);
     var s = (document.getElementById('busca-input') || {}).value || '', st = (document.getElementById('filtro-status') || {}).value || '';
     try {
-        var d = await apiFetch('/api/computadores/paginado?page=' + currentPage.computadores + '&size=12&status=' + st + '&termo=' + encodeURICompónent(s));
+        var d = await apiFetch('/api/computadores/paginado?page=' + currentPage.computadores + '&size=12&status=' + st + '&termo=' + encodeURIComponent(s));
         renderComputadoresCards(d);
     } catch (e) {
         var grid = document.getElementById('pc-cards-grid');
@@ -886,13 +886,13 @@ async function showComputadorDetail(id) {
         var fotoHtml = '<div class="detail-foto" style="overflow:hidden;width:200px;height:200px;border-radius:12px;flex-shrink:0;">' + getComputerPhoto(eq, { w: 200, h: 200 }) + '</div>';
         var manutHtml = '';
         try {
-            var manutData = await apiFetch('/api/manutenções?computadorId=' + id + '&page=0&size=100');
+            var manutData = await apiFetch('/api/manutencoes?computadorId=' + id + '&page=0&size=100');
             var manutList = manutData.content || manutData;
             if (manutList.length > 0) {
                 manutHtml = '<div style="margin-top:20px;"><h4 style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;"><i class="fas fa-wrench" style="color:var(--primary-light);margin-right:6px;"></i>Histórico de Manutenção</h4>';
                 manutList.forEach(function(m) {
                     var ms = escapeHtml(m.status.replace(/_/g, ' '));
-                    manutHtml += '<div style="padding:10px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge badge-' + escapeHtml(m.tipó.toLowerCase()) + '">' + escapeHtml(m.tipó) + '</span><span class="badge badge-' + escapeHtml(m.status.toLowerCase().replace(/_/g, '-')) + '">' + ms + '</span></div><p style="font-size:12px;color:var(--text-secondary);margin-top:6px;">' + escapeHtml(m.descricao || '') + '</p>' + (m.tecnicoRespónsável ? '<p style="font-size:11px;color:var(--text-muted);margin-top:4px;"><i class="fas fa-user"></i> ' + escapeHtml(m.tecnicoRespónsável) + '</p>' : '') + '</div>';
+                    manutHtml += '<div style="padding:10px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge badge-' + escapeHtml(m.tipo.toLowerCase()) + '">' + escapeHtml(m.tipo) + '</span><span class="badge badge-' + escapeHtml(m.status.toLowerCase().replace(/_/g, '-')) + '">' + ms + '</span></div><p style="font-size:12px;color:var(--text-secondary);margin-top:6px;">' + escapeHtml(m.descricao || '') + '</p>' + (m.tecnicoResponsavel ? '<p style="font-size:11px;color:var(--text-muted);margin-top:4px;"><i class="fas fa-user"></i> ' + escapeHtml(m.tecnicoResponsavel) + '</p>' : '') + '</div>';
                 });
                 manutHtml += '</div>';
             }
@@ -905,7 +905,7 @@ async function showComputadorDetail(id) {
         if (eq.ipAddress) extraItems.push(['Endereço IP', escapeHtml(eq.ipAddress)]);
         if (eq.sistemaOperacional) extraItems.push(['Sistema Operacional', escapeHtml(eq.sistemaOperacional)]);
         if (eq.softwareInstalado) extraItems.push(['Software Instalado', escapeHtml(eq.softwareInstalado)]);
-        if (eq.dataAquisição) extraItems.push(['Data Aquisição', new Date(eq.dataAquisição + 'T00:00:00').toLocaleDateString('pt-BR')]);
+        if (eq.dataAquisicao) extraItems.push(['Data Aquisição', new Date(eq.dataAquisicao + 'T00:00:00').toLocaleDateString('pt-BR')]);
         if (eq.dataGarantia) {
             var garDate = new Date(eq.dataGarantia + 'T00:00:00');
             var garLabel = garDate.toLocaleDateString('pt-BR');
@@ -925,7 +925,7 @@ async function showComputadorDetail(id) {
             extraItems.forEach(function(item) { extraHtml += '<div><label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">' + escapeHtml(item[0]) + '</label><p style="font-size:13px;color:var(--text-primary);font-weight:500;margin-top:2px;">' + item[1] + '</p></div>'; });
             extraHtml += '</div></div>';
         }
-        openModal('Detalhes do Computador', '<div class="detail-header">' + fotoHtml + '<div class="detail-info"><h2>' + escapeHtml(eq.nomePc) + '</h2><p>' + escapeHtml(eq.modeloMarca) + ' &mdash; ' + escapeHtml(eq.númeroSérie) + '</p><span class="badge ' + s.c + '"><i class="fas ' + s.i + '" style="font-size:9px;"></i> ' + sl + '</span></div></div><div class="detail-specs"><div class="detail-spec-item"><label>Processador</label><p>' + escapeHtml(eq.processador) + '</p></div><div class="detail-spec-item"><label>Memoria RAM</label><p>' + escapeHtml(eq.memoriaRam) + '</p></div><div class="detail-spec-item"><label>Armazenamento</label><p>' + escapeHtml(eq.armazenamento) + '</p></div><div class="detail-spec-item"><label>Usuário Designado</label><p>' + escapeHtml(eq.usuarioDesignado || 'Nao atribuido') + '</p></div><div class="detail-spec-item"><label>Número de Série</label><p>' + escapeHtml(eq.númeroSérie) + '</p></div></div>' + extraHtml + manutHtml, '<button onclick="closeModal()" class="btn btn-ghost btn-sm">Fechar</button><button onclick="closeModal();showComputadorForm(' + eq.id + ')" class="btn btn-primary btn-sm"><i class="fas fa-pen"></i> Editar</button>');
+        openModal('Detalhes do Computador', '<div class="detail-header">' + fotoHtml + '<div class="detail-info"><h2>' + escapeHtml(eq.nomePc) + '</h2><p>' + escapeHtml(eq.modeloMarca) + ' &mdash; ' + escapeHtml(eq.numeroSerie) + '</p><span class="badge ' + s.c + '"><i class="fas ' + s.i + '" style="font-size:9px;"></i> ' + sl + '</span></div></div><div class="detail-specs"><div class="detail-spec-item"><label>Processador</label><p>' + escapeHtml(eq.processador) + '</p></div><div class="detail-spec-item"><label>Memoria RAM</label><p>' + escapeHtml(eq.memoriaRam) + '</p></div><div class="detail-spec-item"><label>Armazenamento</label><p>' + escapeHtml(eq.armazenamento) + '</p></div><div class="detail-spec-item"><label>Usuário Designado</label><p>' + escapeHtml(eq.usuarioDesignado || 'Nao atribuido') + '</p></div><div class="detail-spec-item"><label>Número de Série</label><p>' + escapeHtml(eq.numeroSerie) + '</p></div></div>' + extraHtml + manutHtml, '<button onclick="closeModal()" class="btn btn-ghost btn-sm">Fechar</button><button onclick="closeModal();showComputadorForm(' + eq.id + ')" class="btn btn-primary btn-sm"><i class="fas fa-pen"></i> Editar</button>');
     } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -989,7 +989,7 @@ async function applyBulkStatus() {
 }
 
 async function showComputadorForm(id) {
-    var eq = { nomePc: '', númeroSérie: '', modeloMarca: '', processador: '', memoriaRam: '', armazenamento: '', usuarioDesignado: '', fornecedor: '', status: 'ATIVO', fotoUrl: '' };
+    var eq = { nomePc: '', numeroSerie: '', modeloMarca: '', processador: '', memoriaRam: '', armazenamento: '', usuarioDesignado: '', fornecedor: '', status: 'ATIVO', fotoUrl: '' };
     if (id) { try { eq = await apiFetch('/api/computadores/' + id); } catch (e) { showToast('Erro ao carregar computador: ' + e.message, 'error'); return; } }
     var fotoHtml = '<div class="photo-upload-area" id="photoUploadArea"><input type="file" id="eqFotoFile" accept=".jpg,.jpeg,.jfif,.png,.gif,.webp,.bmp,.tiff,.tif,.heic,.heif,.avif,.svg,.ico,image/*" style="display:none;"><div id="fotoDropZone" class="foto-drop-zone"><div id="fotoPreview" class="foto-preview">' + (eq.fotoUrl && eq.fotoUrl.trim() ? '<div style="position:relative;display:inline-block;"><img src="' + escapeHtml(eq.fotoUrl) + '" style="max-height:240px;object-fit:contain;border-radius:8px;border:1px solid var(--border);" onload="this.style.display=\'block\';" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';"><div style="display:none;flex-direction:column;align-items:center;color:var(--red);padding:10px;"><i class="fas fa-exclamation-triangle" style="font-size:16px;"></i><p style="font-size:11px;margin-top:4px;">Imagem nãoencontrada</p></div></div><div style="display:flex;gap:4px;margin-top:8px;"><button type="button" onclick="event.stopPropagation();document.getElementById(\'eqFotoFile\').click();" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Trocar Foto</button><button type="button" onclick="event.stopPropagation();removePhoto()" class="btn btn-ghost btn-sm"><i class="fas fa-trash"></i> Remover</button></div>' : '<i class="fas fa-image" style="font-size:36px;color:var(--text-muted);margin-bottom:12px;opacity:0.4;"></i><p style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">Arraste fotos ou clique para selecionar</p><button id="fotoUploadBtn" onclick="event.stopPropagation();document.getElementById(\'eqFotoFile\').click();" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> importar Foto</button><p style="font-size:11px;color:var(--text-muted);margin-top:10px;">JPG, PNG, GIF, WebP, HEIC, AVIF, BMP, TIFF, SVG (max 50MB)</p>') + '</div></div><input type="hidden" id="eqFotoUrlFinal" value="' + escapeAttr(eq.fotoUrl || '') + '"></div>';
     var statusOpts = ['ATIVO', 'MANUTENCAO_PREDITIVA', 'MANUTENCAO_PREVENTIVA', 'MANUTENCAO_EMERGENCIAL', 'CONCLUIDO'].map(function(st) {
@@ -1005,7 +1005,7 @@ async function showComputadorForm(id) {
         '<div class="form-group"><label class="form-label">Localização</label><input id="eqLocal" value="' + escapeAttr(eq.localizacao || '') + '" class="form-input" placeholder="Ex: Sala 101, 2o andar" maxlength="150"></div>' +
         '<div class="form-group"><label class="form-label">Endereço IP</label><input id="eqIP" value="' + escapeAttr(eq.ipAddress || '') + '" class="form-input" placeholder="Ex: 192.168.1.100" maxlength="50"></div>' +
         '<div class="form-group"><label class="form-label">Sistema Operacional</label><select id="eqSO" class="form-input">' + soOpts + '</select></div>' +
-        '<div class="form-group"><label class="form-label">Data Aquisição</label><input type="date" id="eqDataAq" value="' + (eq.dataAquisição || '') + '" class="form-input"></div>' +
+        '<div class="form-group"><label class="form-label">Data Aquisição</label><input type="date" id="eqDataAq" value="' + (eq.dataAquisicao || '') + '" class="form-input"></div>' +
         '<div class="form-group"><label class="form-label">Data Garantia</label><input type="date" id="eqDataGar" value="' + (eq.dataGarantia || '') + '" class="form-input"></div>' +
         '<div class="form-group"><label class="form-label">Software Instalado</label><input id="eqSoftware" value="' + escapeAttr(eq.softwareInstalado || '') + '" class="form-input" placeholder="Ex: Office 365, Adobe CC" maxlength="200"></div>' +
         '</div>' +
@@ -1024,12 +1024,12 @@ async function showComputadorForm(id) {
         '<div id="tabgeral" class="form-tab-content ' + tabActives[0] + '" style="' + tabDisplays[0] + '">' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">' +
         '<div class="form-group"><label class="form-label">Nome PC *</label><input id="eqNome" value="' + escapeAttr(eq.nomePc) + '" required class="form-input" maxlength="100"></div>' +
-        '<div class="form-group"><label class="form-label">Número Série *</label><input id="eqSérie" value="' + escapeAttr(eq.númeroSérie) + '" required class="form-input" maxlength="50"></div>' +
+        '<div class="form-group"><label class="form-label">Número Série *</label><input id="eqSerie" value="' + escapeAttr(eq.numeroSerie) + '" required class="form-input" maxlength="50"></div>' +
         '<div class="form-group"><label class="form-label">Modelo/Marca *</label><input id="eqModelo" value="' + escapeAttr(eq.modeloMarca) + '" required class="form-input" maxlength="100"></div>' +
         '<div class="form-group"><label class="form-label">Processador *</label><input id="eqProc" value="' + escapeAttr(eq.processador) + '" required class="form-input" maxlength="100"></div>' +
         '<div class="form-group"><label class="form-label">Memoria RAM *</label><input id="eqRam" value="' + escapeAttr(eq.memoriaRam) + '" required class="form-input" maxlength="50"></div>' +
         '<div class="form-group"><label class="form-label">Armazenamento *</label><input id="eqArm" value="' + escapeAttr(eq.armazenamento) + '" required class="form-input" maxlength="50"></div>' +
-        '<div class="form-group"><label class="form-label">Usuário Designado</label><input id="eqUsuário" value="' + escapeAttr(eq.usuarioDesignado || '') + '" class="form-input" maxlength="100"></div>' +
+        '<div class="form-group"><label class="form-label">Usuário Designado</label><input id="eqUsuario" value="' + escapeAttr(eq.usuarioDesignado || '') + '" class="form-input" maxlength="100"></div>' +
         '<div class="form-group"><label class="form-label">Fornecedor</label><input id="eqFornecedor" value="' + escapeAttr(eq.fornecedor || '') + '" class="form-input" placeholder="Ex: Dell, Lenovo" maxlength="100"></div>' +
         '</div>' +
         '<div class="form-group" style="margin-top:14px;"><label class="form-label">Status</label><select id="eqStatus" class="form-input">' + statusOpts + '</select></div>' +
@@ -1069,12 +1069,12 @@ async function showComputadorForm(id) {
         var fotoVal = document.getElementById('eqFotoUrlFinal').value || null;
         var p = {
             nomePc: document.getElementById('eqNome').value,
-            númeroSérie: document.getElementById('eqSérie').value,
+            numeroSerie: document.getElementById('eqSerie').value,
             modeloMarca: document.getElementById('eqModelo').value,
             processador: document.getElementById('eqProc').value,
             memoriaRam: document.getElementById('eqRam').value,
             armazenamento: document.getElementById('eqArm').value,
-            usuarioDesignado: document.getElementById('eqUsuário').value,
+            usuarioDesignado: document.getElementById('eqUsuario').value,
             fornecedor: document.getElementById('eqFornecedor').value || null,
             status: statusVal,
             fotoUrl: fotoVal,
@@ -1082,7 +1082,7 @@ async function showComputadorForm(id) {
             localizacao: document.getElementById('eqLocal').value || null,
             ipAddress: document.getElementById('eqIP').value || null,
             sistemaOperacional: document.getElementById('eqSO').value || null,
-            dataAquisição: document.getElementById('eqDataAq').value || null,
+            dataAquisicao: document.getElementById('eqDataAq').value || null,
             dataGarantia: document.getElementById('eqDataGar').value || null,
             softwareInstalado: document.getElementById('eqSoftware').value || null,
             notas: document.getElementById('eqNotas').value || null
@@ -1099,9 +1099,9 @@ async function showComputadorForm(id) {
                 showToast('Computador cadastrado!');
             }
             if (isNewManut) {
-                var tipóMap = { 'MANUTENCAO_PREDITIVA': 'PREDITIVA', 'MANUTENCAO_PREVENTIVA': 'PREVENTIVA', 'MANUTENCAO_EMERGENCIAL': 'EMERGENCIAL' };
+                var tipoMap = { 'MANUTENCAO_PREDITIVA': 'PREDITIVA', 'MANUTENCAO_PREVENTIVA': 'PREVENTIVA', 'MANUTENCAO_EMERGENCIAL': 'EMERGENCIAL' };
                 try {
-                    await apiFetch('/api/manutenções', { method: 'POST', body: JSON.stringify({ computadorId: id, tipó: tipóMap[statusVal] || 'PREVENTIVA', descricao: manutDesc, status: 'PENDENTE', tecnicoRespónsável: '' }) });
+                    await apiFetch('/api/manutencoes', { method: 'POST', body: JSON.stringify({ computadorId: id, tipo: tipoMap[statusVal] || 'PREVENTIVA', descricao: manutDesc, status: 'PENDENTE', tecnicoResponsavel: '' }) });
                     showToast('Manutenção criada automaticamente!', 'success');
                 } catch (me) { showToast('Computador salvo, mas erro ao criar manutenção: ' + me.message, 'warning'); }
             }
@@ -1235,26 +1235,26 @@ async function quickToggleManStatus(id, currentStatus) {
     var newStatus = nextStatus[currentStatus];
     if (!newStatus) return;
     try {
-        var m = await apiFetch('/api/manutenções/' + id);
-        await apiFetch('/api/manutenções/' + id, { method: 'PUT', body: JSON.stringify({ ...m, status: newStatus }) });
+        var m = await apiFetch('/api/manutencoes/' + id);
+        await apiFetch('/api/manutencoes/' + id, { method: 'PUT', body: JSON.stringify({ ...m, status: newStatus }) });
         showToast('Status alterado para ' + newStatus.replace(/_/g, ' '));
         if (m.computadorId) {
             try {
-                var tipóToStatusQ = { 'CORRETIVA': 'MANUTENCAO_EMERGENCIAL', 'PREVENTIVA': 'MANUTENCAO_PREVENTIVA', 'PREDITIVA': 'MANUTENCAO_PREDITIVA', 'EMERGENCIAL': 'MANUTENCAO_EMERGENCIAL' };
+                var tipoToStatusQ = { 'CORRETIVA': 'MANUTENCAO_EMERGENCIAL', 'PREVENTIVA': 'MANUTENCAO_PREVENTIVA', 'PREDITIVA': 'MANUTENCAO_PREDITIVA', 'EMERGENCIAL': 'MANUTENCAO_EMERGENCIAL' };
                 var statusToStatusQ = { 'PENDENTE': null, 'EM_ANDAMENTO': null, 'CONCLUIDA': 'ATIVO', 'CANCELADA': 'ATIVO' };
-                var compStatus = statusToStatusQ[newStatus] !== undefined ? statusToStatusQ[newStatus] : (tipóToStatusQ[m.tipó] || 'MANUTENCAO_PREVENTIVA');
-                if (compStatus === null) compStatus = tipóToStatusQ[m.tipó] || 'MANUTENCAO_PREVENTIVA';
+                var compStatus = statusToStatusQ[newStatus] !== undefined ? statusToStatusQ[newStatus] : (tipoToStatusQ[m.tipo] || 'MANUTENCAO_PREVENTIVA');
+                if (compStatus === null) compStatus = tipoToStatusQ[m.tipo] || 'MANUTENCAO_PREVENTIVA';
                 var compData = await apiFetch('/api/computadores/' + m.computadorId);
                 await apiFetch('/api/computadores/' + m.computadorId, { method: 'PUT', body: JSON.stringify({ ...compData, status: compStatus }) });
             } catch (e) { }
         }
         if (newStatus === 'CONCLUIDA' || newStatus === 'CANCELADA') {
             try {
-                var allOS = await apiFetch('/api/ordens-serviço?page=0&size=100&status=ABERTA');
+                var allOS = await apiFetch('/api/ordens-servico?page=0&size=100&status=ABERTA');
                 var osList = allOS.content || allOS || [];
                 var linkedOS = osList.filter(function(o) { return o.titulo && o.titulo.indexOf('Manutenção #' + id) !== -1; });
                 for (var oi = 0; oi < linkedOS.length; oi++) {
-                    await apiFetch('/api/ordens-serviço/' + linkedOS[oi].id, { method: 'PUT', body: JSON.stringify({ ...linkedOS[oi], status: newStatus === 'CONCLUIDA' ? 'CONCLUIDA' : 'CANCELADA', solução: 'Manutenção #' + id + ' ' + (newStatus === 'CONCLUIDA' ? 'concluida' : 'cancelada') }) });
+                    await apiFetch('/api/ordens-servico/' + linkedOS[oi].id, { method: 'PUT', body: JSON.stringify({ ...linkedOS[oi], status: newStatus === 'CONCLUIDA' ? 'CONCLUIDA' : 'CANCELADA', solucao: 'Manutenção #' + id + ' ' + (newStatus === 'CONCLUIDA' ? 'concluida' : 'cancelada') }) });
                 }
             } catch (e) { }
         }
@@ -1262,7 +1262,7 @@ async function quickToggleManStatus(id, currentStatus) {
     } catch (e) { showToast(e.message, 'error'); }
 }
 
-function setupManutençãoPhotoUpload() {
+function setupManutencaoPhotoUpload() {
     var dropZone = document.getElementById('manFotoDropZone');
     var fileInput = document.getElementById('manFotoFile');
     var urlFinal = document.getElementById('manFotoUrlFinal');
@@ -1330,28 +1330,28 @@ function removeManFoto() {
 // ==========================================
 // MAINTENANCE
 // ==========================================
-async function loadManutenções(page) {
-    if (page !== undefined) currentPage.manutenções = page;
+async function loadManutencoes(page) {
+    if (page !== undefined) currentPage.manutencoes = page;
     var st = (document.getElementById('man-filtro-status') || {}).value || '';
     var sb = (document.getElementById('man-busca-input') || {}).value || '';
     _manFilters.status = st;
     _manFilters.termo = sb;
     try {
-        var allUrl = '/api/manutenções?page=' + currentPage.manutenções + '&size=10';
+        var allUrl = '/api/manutencoes?page=' + currentPage.manutencoes + '&size=10';
         if (st) allUrl += '&status=' + st;
-        if (sb) allUrl = '/api/manutenções?page=0&size=100' + (st ? '&status=' + st : '');
+        if (sb) allUrl = '/api/manutencoes?page=0&size=100' + (st ? '&status=' + st : '');
         var d = await apiFetch(allUrl);
-        renderManutenções(d, sb, st);
+        renderManutencoes(d, sb, st);
         renderManKpis();
     } catch (e) {
-        var tb = document.querySelector('#manutençõesTable tbody');
+        var tb = document.querySelector('#manutencoesTable tbody');
         if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Nenhuma manutenção encontrada</td></tr>';
     }
 }
 
 async function renderManKpis() {
     try {
-        var stats = await apiFetch('/api/manutenções/estatísticas');
+        var stats = await apiFetch('/api/manutencoes/estatisticas');
         stats = stats || {};
         var k = [
             { i: 'fa-tools', l: 'Total', v: stats.total || 0, c: 'cyan', t: 'TOTAL', key: 'man-kpi-total' },
@@ -1390,14 +1390,14 @@ function renderManKpiDetail(key) {
     else if (key === 'man-kpi-andamento') { title = 'Manutenções Em Andamento'; icon = 'fa-spinner'; color = 'orange'; statusFilter = '&status=EM_ANDAMENTO'; }
     else if (key === 'man-kpi-concluidas') { title = 'Manutenções Concluídas'; icon = 'fa-check-double'; color = 'green'; statusFilter = '&status=CONCLUIDA'; }
     else if (key === 'man-kpi-canceladas') { title = 'Manutenções Canceladas'; icon = 'fa-times-circle'; color = 'red'; statusFilter = '&status=CANCELADA'; }
-    apiFetch('/api/manutenções?page=0&size=100' + statusFilter).then(function(d) {
+    apiFetch('/api/manutencoes?page=0&size=100' + statusFilter).then(function(d) {
         closeManKpiDetail();
         var list = (d.content || d || []);
         var count = list.length;
         var ov = document.createElement('div'); ov.id = 'sdOverlay-man'; ov.className = 'sd-overlay'; ov.onclick = closeManKpiDetail;
         var ct = document.createElement('div'); ct.id = 'sdContainer-man'; ct.className = 'sd-container';
         var itemsHtml = list.map(function(m) {
-            return '<div class="stat-detail-item" onclick="showManutençãoForm(' + m.id + ')"><div class="stat-detail-item-icon" style="background:var(--' + color + '-bg);color:var(--' + color + ');"><i class="fas fa-wrench"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(m.computadorNome || 'PC #' + m.computadorId) + '</div><div class="stat-detail-item-sub">' + escapeHtml(m.tipó) + ' - ' + escapeHtml(m.tecnicoRespónsável || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-' + escapeHtml(m.status.toLowerCase().replace(/_/g, '-')) + '">' + escapeHtml(m.status.replace(/_/g, ' ')) + '</span></div></div>';
+            return '<div class="stat-detail-item" onclick="showManutencaoForm(' + m.id + ')"><div class="stat-detail-item-icon" style="background:var(--' + color + '-bg);color:var(--' + color + ');"><i class="fas fa-wrench"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(m.computadorNome || 'PC #' + m.computadorId) + '</div><div class="stat-detail-item-sub">' + escapeHtml(m.tipo) + ' - ' + escapeHtml(m.tecnicoResponsavel || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-' + escapeHtml(m.status.toLowerCase().replace(/_/g, '-')) + '">' + escapeHtml(m.status.replace(/_/g, ' ')) + '</span></div></div>';
         }).join('');
         if (!itemsHtml) itemsHtml = '<div class="stat-detail-empty"><i class="fas fa-inbox"></i> Nenhum item encontrado</div>';
         ct.innerHTML = '<div class="stat-detail-header"><h4><i class="fas ' + icon + '" style="color:var(--' + color + ');"></i> ' + title + ' <span style="font-weight:400;font-size:11px;color:var(--text-muted);">(' + count + ' itens)</span></h4><button class="stat-detail-close" onclick="closeManKpiDetail()"><i class="fas fa-times"></i> Fechar</button></div><div class="stat-detail-body">' + itemsHtml + '</div>';
@@ -1405,8 +1405,8 @@ function renderManKpiDetail(key) {
     });
 }
 
-function renderManutenções(data, searchTerm, serverStatus) {
-    var tb = document.querySelector('#manutençõesTable tbody');
+function renderManutencoes(data, searchTerm, serverStatus) {
+    var tb = document.querySelector('#manutencoesTable tbody');
     if (!tb) return;
     if (!data.content || data.content.length === 0) {
         tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Nenhuma manutenção encontrada</td></tr>';
@@ -1414,12 +1414,12 @@ function renderManutenções(data, searchTerm, serverStatus) {
         return;
     }
     var items = data.content;
-    if (!serverStatus && !_manFilters.showConcluídas && !_manFilters.status) {
+    if (!serverStatus && !_manFilters.showConcluidas && !_manFilters.status) {
         items = items.filter(function(m) { return m.status !== 'CONCLUIDA' && m.status !== 'CANCELADA'; });
     }
     if (searchTerm) {
         var sl = searchTerm.toLowerCase();
-        items = items.filter(function(m) { return (m.computadorNome || '').toLowerCase().indexOf(sl) !== -1 || (m.tecnicoRespónsável || '').toLowerCase().indexOf(sl) !== -1 || (m.descricao || '').toLowerCase().indexOf(sl) !== -1; });
+        items = items.filter(function(m) { return (m.computadorNome || '').toLowerCase().indexOf(sl) !== -1 || (m.tecnicoResponsavel || '').toLowerCase().indexOf(sl) !== -1 || (m.descricao || '').toLowerCase().indexOf(sl) !== -1; });
     }
     if (items.length === 0) {
         tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Nenhuma manutenção encontrada</td></tr>';
@@ -1428,39 +1428,39 @@ function renderManutenções(data, searchTerm, serverStatus) {
     }
     var pageSize = 10;
     var filteredTotalPages = Math.ceil(items.length / pageSize);
-    renderPagination('man-pagination', filteredTotalPages, 0, loadManutenções);
+    renderPagination('man-pagination', filteredTotalPages, 0, loadManutencoes);
     tb.innerHTML = items.map(function(m) {
         var isCompleted = m.status === 'CONCLUIDA';
         var rowStyle = isCompleted ? 'opacity:0.55;' : '';
         var checkIcon = isCompleted ? '<i class="fas fa-check-circle" style="color:var(--green);margin-right:4px;"></i>' : '';
         var dtCadastro = m.dataCadastro ? new Date(m.dataCadastro) : null;
-        var tempóAberto = '';
+        var tempoAberto = '';
         if (dtCadastro) {
             var diff = Math.floor((Date.now() - dtCadastro.getTime()) / 86400000);
-            tempóAberto = diff === 0 ? 'Hoje' : diff + 'd atrás';
+            tempoAberto = diff === 0 ? 'Hoje' : diff + 'd atrás';
         }
-        return '<tr style="' + rowStyle + '"><td class="font-medium">' + checkIcon + m.id + '</td><td>' + escapeHtml(m.computadorNome) + '</td><td><span class="badge badge-' + escapeHtml(m.tipó.toLowerCase()) + '">' + escapeHtml(m.tipó) + '</span></td><td style="cursor:pointer;" onclick="quickToggleManStatus(' + m.id + ',\'' + escapeJsStr(m.status) + '\')"><span class="badge badge-' + escapeHtml(m.status.toLowerCase().replace(/_/g, '-')) + '">' + escapeHtml(m.status.replace(/_/g, ' ')) + '</span>' + (tempóAberto ? '<div style="font-size:9px;color:var(--text-muted);margin-top:2px;">' + tempóAberto + '</div>' : '') + '</td><td>' + escapeHtml(m.tecnicoRespónsável || '-') + '</td><td><div style="display:flex;gap:4px;"><button onclick="showManutençãoForm(' + m.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'manutenção\',' + m.id + ',\'Manutenção #' + m.id + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
+        return '<tr style="' + rowStyle + '"><td class="font-medium">' + checkIcon + m.id + '</td><td>' + escapeHtml(m.computadorNome) + '</td><td><span class="badge badge-' + escapeHtml(m.tipo.toLowerCase()) + '">' + escapeHtml(m.tipo) + '</span></td><td style="cursor:pointer;" onclick="quickToggleManStatus(' + m.id + ',\'' + escapeJsStr(m.status) + '\')"><span class="badge badge-' + escapeHtml(m.status.toLowerCase().replace(/_/g, '-')) + '">' + escapeHtml(m.status.replace(/_/g, ' ')) + '</span>' + (tempoAberto ? '<div style="font-size:9px;color:var(--text-muted);margin-top:2px;">' + tempoAberto + '</div>' : '') + '</td><td>' + escapeHtml(m.tecnicoResponsavel || '-') + '</td><td><div style="display:flex;gap:4px;"><button onclick="showManutencaoForm(' + m.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'manutenção\',' + m.id + ',\'Manutenção #' + m.id + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
     }).join('');
 }
 
-async function showManutençãoForm(id) {
-    var m = { tipó: 'CORRETIVA', status: 'PENDENTE', descricao: '' };
-    if (id) { try { m = await apiFetch('/api/manutenções/' + id); } catch (e) { showToast('Erro ao carregar manutenção: ' + e.message, 'error'); return; } }
+async function showManutencaoForm(id) {
+    var m = { tipo: 'CORRETIVA', status: 'PENDENTE', descricao: '' };
+    if (id) { try { m = await apiFetch('/api/manutencoes/' + id); } catch (e) { showToast('Erro ao carregar manutenção: ' + e.message, 'error'); return; } }
     try { allComputadores = await apiFetch('/api/computadores/paginado?page=0&size=100&status=&termo='); } catch (e) { allComputadores = { content: [] }; }
     var compList = allComputadores.content || allComputadores;
-    var opts = compList.map(function(c) { return '<option value="' + c.id + '"' + (m.computadorId == c.id ? ' selected' : '') + '>' + escapeHtml(c.nomePc) + ' (' + escapeHtml(c.númeroSérie) + ')</option>'; }).join('');
-    var usuários = [];
-    try { usuários = await apiFetch('/api/usuários'); } catch (e) { }
-    var tecnicos = usuários.filter(function(u) { return u.perfil === 'ADMIN' || u.perfil === 'TECNICO'; });
-    var tecnicoOpts = tecnicos.map(function(u) { return '<option value="' + escapeHtml(u.nomeCompleto) + '"' + (m.tecnicoRespónsável === u.nomeCompleto ? ' selected' : '') + '>' + escapeHtml(u.nomeCompleto) + ' (' + u.perfil + ')</option>'; }).join('');
+    var opts = compList.map(function(c) { return '<option value="' + c.id + '"' + (m.computadorId == c.id ? ' selected' : '') + '>' + escapeHtml(c.nomePc) + ' (' + escapeHtml(c.numeroSerie) + ')</option>'; }).join('');
+    var usuarios = [];
+    try { usuarios = await apiFetch('/api/usuarios'); } catch (e) { }
+    var tecnicos = usuarios.filter(function(u) { return u.perfil === 'ADMIN' || u.perfil === 'TECNICO'; });
+    var tecnicoOpts = tecnicos.map(function(u) { return '<option value="' + escapeHtml(u.nomeCompleto) + '"' + (m.tecnicoResponsavel === u.nomeCompleto ? ' selected' : '') + '>' + escapeHtml(u.nomeCompleto) + ' (' + u.perfil + ')</option>'; }).join('');
     openModal(id ? 'Editar Manutenção' : 'Nova Manutenção',
         '<form id="manForm"><div class="form-group"><label class="form-label">Computador</label><select id="manComputador" required class="form-input">' + opts + '</select></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;"><div class="form-group"><label class="form-label">Tipó</label><select id="manTipó" class="form-input"><option value="CORRETIVA"' + (m.tipó === 'CORRETIVA' ? ' selected' : '') + '>Corretiva</option><option value="PREVENTIVA"' + (m.tipó === 'PREVENTIVA' ? ' selected' : '') + '>Preventiva</option><option value="PREDITIVA"' + (m.tipó === 'PREDITIVA' ? ' selected' : '') + '>Preditiva</option><option value="EMERGENCIAL"' + (m.tipó === 'EMERGENCIAL' ? ' selected' : '') + '>Emergencial</option></select></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;"><div class="form-group"><label class="form-label">Tipó</label><select id="manTipo" class="form-input"><option value="CORRETIVA"' + (m.tipo === 'CORRETIVA' ? ' selected' : '') + '>Corretiva</option><option value="PREVENTIVA"' + (m.tipo === 'PREVENTIVA' ? ' selected' : '') + '>Preventiva</option><option value="PREDITIVA"' + (m.tipo === 'PREDITIVA' ? ' selected' : '') + '>Preditiva</option><option value="EMERGENCIAL"' + (m.tipo === 'EMERGENCIAL' ? ' selected' : '') + '>Emergencial</option></select></div>' +
         '<div class="form-group"><label class="form-label">Status</label><select id="manStatus" class="form-input"><option value="PENDENTE"' + (m.status === 'PENDENTE' ? ' selected' : '') + '>Pendente</option><option value="EM_ANDAMENTO"' + (m.status === 'EM_ANDAMENTO' ? ' selected' : '') + '>Em Andamento</option><option value="CONCLUIDA"' + (m.status === 'CONCLUIDA' ? ' selected' : '') + '>Concluída</option><option value="CANCELADA"' + (m.status === 'CANCELADA' ? ' selected' : '') + '>Cancelada</option></select></div></div>' +
         '<div class="form-group" style="margin-top:14px;"><label class="form-label">Descrição</label><textarea id="manDescrição" required class="form-input" style="min-height:80px;resize:vertical;">' + escapeHtml(m.descricao || '') + '</textarea></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;"><div class="form-group"><label class="form-label">Técnico Respónsável</label><select id="manTécnico" class="form-input"><option value="">Selecione...</option>' + tecnicoOpts + '</select></div></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;"><div class="form-group"><label class="form-label">Técnico Respónsável</label><select id="manTecnico" class="form-input"><option value="">Selecione...</option>' + tecnicoOpts + '</select></div></div>' +
         '<div class="form-group" style="margin-top:14px;"><label class="form-label">Peças Trocadas</label><input id="manPeças" value="' + escapeAttr(m.pecasTrocadas || '') + '" class="form-input"></div>' +
-        '<div class="form-group" style="margin-top:14px;"><label class="form-label">Observações</label><textarea id="manObs" class="form-input" style="min-height:60px;resize:vertical;">' + escapeHtml(m.observações || '') + '</textarea></div>' +
+        '<div class="form-group" style="margin-top:14px;"><label class="form-label">Observações</label><textarea id="manObs" class="form-input" style="min-height:60px;resize:vertical;">' + escapeHtml(m.observacoes || '') + '</textarea></div>' +
         '<div class="photo-upload-area" style="margin-top:14px;"><input type="file" id="manFotoFile" accept=".jpg,.jpeg,.jfif,.png,.gif,.webp,.bmp,.tiff,.tif,.heic,.heif,.avif,.svg,.ico,image/*" style="display:none;"><div id="manFotoDropZone" class="foto-drop-zone" style="min-height:80px;"><div id="manFotoPreview" class="foto-preview"><i class="fas fa-camera" style="font-size:24px;color:var(--text-muted);margin-bottom:8px;opacity:0.4;"></i><p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">Arraste ou clique para adicionar foto</p><button type="button" onclick="event.stopPropagation();document.getElementById(\'manFotoFile\').click();" class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> importar</button></div></div><input type="hidden" id="manFotoUrlFinal" value="' + escapeAttr(m.fotoUrl || '') + '"></div></form>',
         '<button onclick="closeModal()" class="btn btn-ghost btn-sm">Cancelar</button><button onclick="document.getElementById(\'manForm\').requestSubmit()" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> ' + (id ? 'Salvar' : 'Cadastrar') + '</button>'
     );
@@ -1472,34 +1472,34 @@ async function showManutençãoForm(id) {
         }
         var p = {
             computadorId: parseInt(document.getElementById('manComputador').value),
-            tipó: document.getElementById('manTipó').value,
+            tipo: document.getElementById('manTipo').value,
             status: document.getElementById('manStatus').value,
             descricao: document.getElementById('manDescrição').value,
-            tecnicoRespónsável: document.getElementById('manTécnico').value,
+            tecnicoResponsavel: document.getElementById('manTecnico').value,
             pecasTrocadas: document.getElementById('manPeças').value,
-            observações: document.getElementById('manObs').value,
+            observacoes: document.getElementById('manObs').value,
             fotoUrl: document.getElementById('manFotoUrlFinal').value || null
         };
         try {
             if (id) {
-                await apiFetch('/api/manutenções/' + id, { method: 'PUT', body: JSON.stringify(p) });
+                await apiFetch('/api/manutencoes/' + id, { method: 'PUT', body: JSON.stringify(p) });
                 showToast('Manutenção atualizada!');
             } else {
-                var res = await apiFetch('/api/manutenções', { method: 'POST', body: JSON.stringify(p) });
+                var res = await apiFetch('/api/manutencoes', { method: 'POST', body: JSON.stringify(p) });
                 showToast('Manutenção cadastrada!');
                 if (res && res.id) {
                     try {
                         var comp = compList.find(function(c) { return c.id === p.computadorId; });
-                        await apiFetch('/api/ordens-serviço', { method: 'POST', body: JSON.stringify({ titulo: 'OS - Manutenção #' + res.id + ' - ' + (comp ? comp.nomePc : ''), descricao: 'Ordem aberta automaticamente para manutenção #' + res.id, computadorId: p.computadorId, prioridade: 'MEDIA', status: 'ABERTA', solicitante: p.tecnicoRespónsável || '', tecnicoRespónsável: p.tecnicoRespónsável || '', solução: 'Aguardando início da manutenção ' + res.id }) });
+                        await apiFetch('/api/ordens-servico', { method: 'POST', body: JSON.stringify({ titulo: 'OS - Manutenção #' + res.id + ' - ' + (comp ? comp.nomePc : ''), descricao: 'Ordem aberta automaticamente para manutenção #' + res.id, computadorId: p.computadorId, prioridade: 'MEDIA', status: 'ABERTA', solicitante: p.tecnicoResponsavel || '', tecnicoResponsavel: p.tecnicoResponsavel || '', solucao: 'Aguardando início da manutenção ' + res.id }) });
                     } catch (e) { console.warn('[MANUT] Erro ao criar OS:', e); }
                 }
             }
             if (p.computadorId) {
                 try {
-                    var tipóToStatus = { 'CORRETIVA': 'MANUTENCAO_EMERGENCIAL', 'PREVENTIVA': 'MANUTENCAO_PREVENTIVA', 'PREDITIVA': 'MANUTENCAO_PREDITIVA', 'EMERGENCIAL': 'MANUTENCAO_EMERGENCIAL' };
+                    var tipoToStatus = { 'CORRETIVA': 'MANUTENCAO_EMERGENCIAL', 'PREVENTIVA': 'MANUTENCAO_PREVENTIVA', 'PREDITIVA': 'MANUTENCAO_PREDITIVA', 'EMERGENCIAL': 'MANUTENCAO_EMERGENCIAL' };
                     var statusToStatus = { 'PENDENTE': null, 'EM_ANDAMENTO': null, 'CONCLUIDA': 'ATIVO', 'CANCELADA': 'ATIVO' };
-                    var newStatus = statusToStatus[p.status] !== undefined ? statusToStatus[p.status] : (tipóToStatus[p.tipó] || 'MANUTENCAO_PREVENTIVA');
-                    if (newStatus === null) newStatus = tipóToStatus[p.tipó] || 'MANUTENCAO_PREVENTIVA';
+                    var newStatus = statusToStatus[p.status] !== undefined ? statusToStatus[p.status] : (tipoToStatus[p.tipo] || 'MANUTENCAO_PREVENTIVA');
+                    if (newStatus === null) newStatus = tipoToStatus[p.tipo] || 'MANUTENCAO_PREVENTIVA';
                     var compData = await apiFetch('/api/computadores/' + p.computadorId);
                     await apiFetch('/api/computadores/' + p.computadorId, { method: 'PUT', body: JSON.stringify({ ...compData, status: newStatus }) });
                 } catch (e) { console.warn('[MANUT] Erro ao sincronizar status:', e); }
@@ -1507,35 +1507,35 @@ async function showManutençãoForm(id) {
             if (p.status === 'CONCLUIDA' || p.status === 'CANCELADA' || p.status === 'EM_ANDAMENTO') {
                 try {
                     var statusFiltro = p.status === 'EM_ANDAMENTO' ? 'ABERTA' : 'ABERTA';
-                    var allOS = await apiFetch('/api/ordens-serviço?page=0&size=100&status=' + statusFiltro);
+                    var allOS = await apiFetch('/api/ordens-servico?page=0&size=100&status=' + statusFiltro);
                     var osList = allOS.content || allOS || [];
                     var linkedOS = osList.filter(function(o) { return o.titulo && o.titulo.indexOf('Manutenção #' + res.id) !== -1; });
                     var osStatusMap = { 'EM_ANDAMENTO': 'EM_EXECUCAO', 'CONCLUIDA': 'CONCLUIDA', 'CANCELADA': 'CANCELADA' };
-                    var osSoluçãoMap = { 'EM_ANDAMENTO': 'Manutenção #' + res.id + ' em andamento', 'CONCLUIDA': 'Manutenção #' + res.id + ' concluida', 'CANCELADA': 'Manutenção #' + res.id + ' cancelada' };
+                    var osSolucaoMap = { 'EM_ANDAMENTO': 'Manutenção #' + res.id + ' em andamento', 'CONCLUIDA': 'Manutenção #' + res.id + ' concluida', 'CANCELADA': 'Manutenção #' + res.id + ' cancelada' };
                     for (var oi = 0; oi < linkedOS.length; oi++) {
-                        await apiFetch('/api/ordens-serviço/' + linkedOS[oi].id, { method: 'PUT', body: JSON.stringify({ ...linkedOS[oi], status: osStatusMap[p.status], solução: osSoluçãoMap[p.status] }) });
+                        await apiFetch('/api/ordens-servico/' + linkedOS[oi].id, { method: 'PUT', body: JSON.stringify({ ...linkedOS[oi], status: osStatusMap[p.status], solucao: osSolucaoMap[p.status] }) });
                     }
                 } catch (e) { console.warn('[MANUT] Erro ao sincronizar OS:', e); }
             }
-            closeModal(); loadManutenções(0); refreshAllData();
+            closeModal(); loadManutencoes(0); refreshAllData();
         } catch (e) { showToast(e.message, 'error'); closeModal(); }
     });
-    setupManutençãoPhotoUpload();
+    setupManutencaoPhotoUpload();
 }
 
 // ==========================================
 // ORDENS DE SERVICO (Helpdesk Style)
 // ==========================================
-async function loadOrdensServiço(page) {
-    if (page !== undefined) currentPage.ordensServiço = page;
+async function loadOrdensServico(page) {
+    if (page !== undefined) currentPage.ordensServico = page;
     var st = (document.getElementById('os-filtro-status') || {}).value || '';
     var pr = (document.getElementById('os-filtro-prioridade') || {}).value || '';
     var sb = (document.getElementById('os-busca-input') || {}).value || '';
     try {
-        var osUrl = '/api/ordens-serviço?page=' + currentPage.ordensServiço + '&size=10&status=' + st + '&prioridade=' + pr;
-        if (sb) osUrl = '/api/ordens-serviço?page=0&size=100' + (st ? '&status=' + st : '') + (pr ? '&prioridade=' + pr : '');
+        var osUrl = '/api/ordens-servico?page=' + currentPage.ordensServico + '&size=10&status=' + st + '&prioridade=' + pr;
+        if (sb) osUrl = '/api/ordens-servico?page=0&size=100' + (st ? '&status=' + st : '') + (pr ? '&prioridade=' + pr : '');
         var d = await apiFetch(osUrl);
-        renderOrdensServiço(d, sb);
+        renderOrdensServico(d, sb);
         renderOsKpis();
     } catch (e) {
         var tb = document.querySelector('#ordensTable tbody');
@@ -1545,13 +1545,13 @@ async function loadOrdensServiço(page) {
 
 async function renderOsKpis() {
     try {
-        var stats = await apiFetch('/api/ordens-serviço/estatísticas');
+        var stats = await apiFetch('/api/ordens-servico/estatisticas');
         stats = stats || {};
         var k = [
             { i: 'fa-clipboard-list', l: 'Total', v: stats.total || 0, c: 'cyan', t: 'TOTAL', key: 'os-kpi-total' },
             { i: 'fa-folder-open', l: 'Abertas', v: stats.abertas || 0, c: 'orange', t: 'ABERTA', key: 'os-kpi-abertas' },
             { i: 'fa-search', l: 'Em Analise', v: stats.emAnalise || 0, c: 'yellow', t: 'ANALISE', key: 'os-kpi-analise' },
-            { i: 'fa-cogs', l: 'Em Execução', v: stats.emExecução || 0, c: 'green', t: 'EXECUCAO', key: 'os-kpi-execucao' },
+            { i: 'fa-cogs', l: 'Em Execução', v: stats.emExecucao || 0, c: 'green', t: 'EXECUCAO', key: 'os-kpi-execucao' },
             { i: 'fa-check-circle', l: 'Concluídas', v: stats.concluidas || 0, c: 'green', t: 'CONCLUIDA', key: 'os-kpi-concluidas' }
         ];
         var el = document.getElementById('osKpis');
@@ -1584,7 +1584,7 @@ function renderOsKpiDetail(key) {
     else if (key === 'os-kpi-analise') { title = 'OS Em Analise'; icon = 'fa-search'; color = 'yellow'; statusFilter = '&status=EM_ANALISE'; }
     else if (key === 'os-kpi-execucao') { title = 'OS Em Execução'; icon = 'fa-cogs'; color = 'green'; statusFilter = '&status=EM_EXECUCAO'; }
     else if (key === 'os-kpi-concluidas') { title = 'OS Concluídas'; icon = 'fa-check-circle'; color = 'green'; statusFilter = '&status=CONCLUIDA'; }
-    apiFetch('/api/ordens-serviço?page=0&size=100' + statusFilter).then(function(d) {
+    apiFetch('/api/ordens-servico?page=0&size=100' + statusFilter).then(function(d) {
         closeOsKpiDetail();
         var list = (d.content || d || []);
         var count = list.length;
@@ -1599,7 +1599,7 @@ function renderOsKpiDetail(key) {
     });
 }
 
-function renderOrdensServiço(data, searchTerm) {
+function renderOrdensServico(data, searchTerm) {
     var tb = document.querySelector('#ordensTable tbody');
     if (!tb) return;
     if (!data.content || data.content.length === 0) {
@@ -1618,15 +1618,15 @@ function renderOrdensServiço(data, searchTerm) {
     var statusIcons = { 'ABERTA': 'fa-folder-open', 'EM_ANALISE': 'fa-search', 'EM_EXECUCAO': 'fa-cogs', 'CONCLUIDA': 'fa-check-circle', 'CANCELADA': 'fa-times-circle' };
     var osPageSize = 10;
     var filteredOsTotalPages = Math.ceil(items.length / osPageSize);
-    renderPagination('os-pagination', filteredOsTotalPages, 0, loadOrdensServiço);
+    renderPagination('os-pagination', filteredOsTotalPages, 0, loadOrdensServico);
     tb.innerHTML = items.map(function(o) {
-        var dt = o.dataPrevisão ? new Date(o.dataPrevisão).toLocaleDateString('pt-BR') : '-';
+        var dt = o.dataPrevisao ? new Date(o.dataPrevisao).toLocaleDateString('pt-BR') : '-';
         var dtAbertura = o.dataAbertura ? new Date(o.dataAbertura) : null;
-        var tempóAberto = '';
+        var tempoAberto = '';
         var diff = 0;
         if (dtAbertura) {
             diff = Math.floor((Date.now() - dtAbertura.getTime()) / 86400000);
-            tempóAberto = diff === 0 ? 'Hoje' : diff + 'd';
+            tempoAberto = diff === 0 ? 'Hoje' : diff + 'd';
         }
         var pColor = priorityColors[o.prioridade] || 'var(--text-muted)';
         var pBg = priorityBg[o.prioridade] || 'rgba(255,255,255,0.04)';
@@ -1640,7 +1640,7 @@ function renderOrdensServiço(data, searchTerm) {
             '<td><span class="badge badge-' + escapeHtml(o.prioridade.toLowerCase()) + '">' + escapeHtml(o.prioridade) + '</span></td>' +
             '<td><span class="badge ' + (statusColors[o.status] || 'badge-pendente') + '" style="cursor:pointer;" onclick="event.stopPropagation();quickToggleOsStatus(' + o.id + ',\'' + escapeJsStr(o.status) + '\')"><i class="fas ' + sIcon + '" style="font-size:8px;margin-right:3px;"></i>' + escapeHtml(o.status.replace(/_/g, ' ')) + '</span></td>' +
             '<td>' + (o.solicitante ? escapeHtml(o.solicitante) : '<span style="color:var(--text-muted)">-</span>') + '</td>' +
-            '<td><div style="text-align:center;"><div style="font-size:11px;">' + dt + '</div>' + (tempóAberto ? '<div style="font-size:9px;color:' + (diff > 7 ? 'var(--red)' : diff > 3 ? 'var(--yellow)' : 'var(--text-muted)') + ';">' + tempóAberto + '</div>' : '') + '</div></td>' +
+            '<td><div style="text-align:center;"><div style="font-size:11px;">' + dt + '</div>' + (tempoAberto ? '<div style="font-size:9px;color:' + (diff > 7 ? 'var(--red)' : diff > 3 ? 'var(--yellow)' : 'var(--text-muted)') + ';">' + tempoAberto + '</div>' : '') + '</div></td>' +
             '<td onclick="event.stopPropagation()"><div style="display:flex;gap:4px;"><button onclick="showOrdemForm(' + o.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'ordem\',' + o.id + ',\'' + escapeJsStr(o.titulo) + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
     }).join('');
 }
@@ -1650,24 +1650,24 @@ async function quickToggleOsStatus(id, currentStatus) {
     var newStatus = nextStatus[currentStatus];
     if (!newStatus) return;
     try {
-        var o = await apiFetch('/api/ordens-serviço/' + id);
-        await apiFetch('/api/ordens-serviço/' + id, { method: 'PUT', body: JSON.stringify({ ...o, status: newStatus }) });
+        var o = await apiFetch('/api/ordens-servico/' + id);
+        await apiFetch('/api/ordens-servico/' + id, { method: 'PUT', body: JSON.stringify({ ...o, status: newStatus }) });
         showToast('OS #' + id + ' alterada para ' + newStatus.replace(/_/g, ' '));
         refreshAllData();
     } catch (e) { showToast(e.message, 'error'); }
 }
 
 async function showOrdemForm(id) {
-    var o = { titulo: '', descricao: '', prioridade: 'MEDIA', status: 'ABERTA', solicitante: '', tecnicoRespónsável: '' };
-    if (id) { try { o = await apiFetch('/api/ordens-serviço/' + id); } catch (e) { showToast('Erro ao carregar OS: ' + e.message, 'error'); return; } }
+    var o = { titulo: '', descricao: '', prioridade: 'MEDIA', status: 'ABERTA', solicitante: '', tecnicoResponsavel: '' };
+    if (id) { try { o = await apiFetch('/api/ordens-servico/' + id); } catch (e) { showToast('Erro ao carregar OS: ' + e.message, 'error'); return; } }
     try { allComputadores = await apiFetch('/api/computadores/paginado?page=0&size=100&status=&termo='); } catch (e) { allComputadores = { content: [] }; }
     var compList = allComputadores.content || allComputadores;
     var opts = compList.map(function(c) { return '<option value="' + c.id + '"' + (o.computadorId == c.id ? ' selected' : '') + '>' + escapeHtml(c.nomePc) + '</option>'; }).join('');
-    var usuários = [];
-    try { usuários = await apiFetch('/api/usuários'); } catch (e) { }
-    var tecnicos = usuários.filter(function(u) { return u.perfil === 'ADMIN' || u.perfil === 'TECNICO'; });
-    var tecnicoOpts = tecnicos.map(function(u) { return '<option value="' + escapeHtml(u.nomeCompleto) + '"' + (o.tecnicoRespónsável === u.nomeCompleto ? ' selected' : '') + '>' + escapeHtml(u.nomeCompleto) + ' (' + u.perfil + ')</option>'; }).join('');
-    var dataPrevisão = o.dataPrevisão ? o.dataPrevisão.substring(0, 10) : '';
+    var usuarios = [];
+    try { usuarios = await apiFetch('/api/usuarios'); } catch (e) { }
+    var tecnicos = usuarios.filter(function(u) { return u.perfil === 'ADMIN' || u.perfil === 'TECNICO'; });
+    var tecnicoOpts = tecnicos.map(function(u) { return '<option value="' + escapeHtml(u.nomeCompleto) + '"' + (o.tecnicoResponsavel === u.nomeCompleto ? ' selected' : '') + '>' + escapeHtml(u.nomeCompleto) + ' (' + u.perfil + ')</option>'; }).join('');
+    var dataPrevisao = o.dataPrevisao ? o.dataPrevisao.substring(0, 10) : '';
     openModal(id ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço',
         '<form id="osForm"><div class="form-group"><label class="form-label">Titulo *</label><input id="osTitulo" value="' + escapeAttr(o.titulo) + '" required class="form-input"></div>' +
         '<div class="form-group" style="margin-top:14px;"><label class="form-label">Descrição</label><textarea id="osDescrição" class="form-input" style="min-height:80px;resize:vertical;">' + escapeHtml(o.descricao || '') + '</textarea></div>' +
@@ -1676,8 +1676,8 @@ async function showOrdemForm(id) {
         '<div class="form-group"><label class="form-label">Status</label><select id="osStatus" class="form-input"><option value="ABERTA"' + (o.status === 'ABERTA' ? ' selected' : '') + '>Aberta</option><option value="EM_ANALISE"' + (o.status === 'EM_ANALISE' ? ' selected' : '') + '>Em Analise</option><option value="EM_EXECUCAO"' + (o.status === 'EM_EXECUCAO' ? ' selected' : '') + '>Em Execução</option><option value="CONCLUIDA"' + (o.status === 'CONCLUIDA' ? ' selected' : '') + '>Concluída</option><option value="CANCELADA"' + (o.status === 'CANCELADA' ? ' selected' : '') + '>Cancelada</option></select></div></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;"><div class="form-group"><label class="form-label">Solicitante</label><input id="osSolicitante" value="' + escapeAttr(o.solicitante || '') + '" class="form-input"></div>' +
         '<div class="form-group"><label class="form-label">Respónsável</label><select id="osTécnico" class="form-input"><option value="">Nenhum</option>' + tecnicoOpts + '</select></div></div>' +
-        '<div class="form-group" style="margin-top:14px;"><label class="form-label">Data Previsão</label><input type="date" id="osDataPrevisão" value="' + dataPrevisão + '" class="form-input"></div>' +
-        '<div class="form-group" style="margin-top:14px;"><label class="form-label">Solução</label><textarea id="osSolução" class="form-input" style="min-height:60px;resize:vertical;">' + escapeHtml(o.solução || '') + '</textarea></div></form>',
+        '<div class="form-group" style="margin-top:14px;"><label class="form-label">Data Previsão</label><input type="date" id="osDataPrevisao" value="' + dataPrevisao + '" class="form-input"></div>' +
+        '<div class="form-group" style="margin-top:14px;"><label class="form-label">Solução</label><textarea id="osSolução" class="form-input" style="min-height:60px;resize:vertical;">' + escapeHtml(o.solucao || '') + '</textarea></div></form>',
         '<button onclick="closeModal()" class="btn btn-ghost btn-sm">Cancelar</button><button onclick="document.getElementById(\'osForm\').requestSubmit()" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> ' + (id ? 'Salvar' : 'Cadastrar') + '</button>'
     );
     document.getElementById('osForm').addEventListener('submit', async function(e) {
@@ -1689,19 +1689,19 @@ async function showOrdemForm(id) {
             prioridade: document.getElementById('osPrioridade').value,
             status: document.getElementById('osStatus').value,
             solicitante: document.getElementById('osSolicitante').value,
-            tecnicoRespónsável: document.getElementById('osTécnico').value,
-            dataPrevisão: document.getElementById('osDataPrevisão').value ? document.getElementById('osDataPrevisão').value + 'T17:00:00' : null,
-            solução: document.getElementById('osSolução').value
+            tecnicoResponsavel: document.getElementById('osTécnico').value,
+            dataPrevisao: document.getElementById('osDataPrevisao').value ? document.getElementById('osDataPrevisao').value + 'T17:00:00' : null,
+            solucao: document.getElementById('osSolução').value
         };
         try {
             if (id) {
-                await apiFetch('/api/ordens-serviço/' + id, { method: 'PUT', body: JSON.stringify(p) });
+                await apiFetch('/api/ordens-servico/' + id, { method: 'PUT', body: JSON.stringify(p) });
                 showToast('Ordem atualizada!');
             } else {
-                await apiFetch('/api/ordens-serviço', { method: 'POST', body: JSON.stringify(p) });
+                await apiFetch('/api/ordens-servico', { method: 'POST', body: JSON.stringify(p) });
                 showToast('Ordem criada!');
             }
-            closeModal(); loadOrdensServiço(0); refreshAllData();
+            closeModal(); loadOrdensServico(0); refreshAllData();
         } catch (e) { showToast(e.message, 'error'); }
     });
 }
@@ -1709,12 +1709,12 @@ async function showOrdemForm(id) {
 // ==========================================
 // REPORTS
 // ==========================================
-async function loadRelatórios() {
+async function loadRelatorios() {
     try {
         var eqData = await apiFetch('/api/computadores/paginado?page=0&size=100&status=&termo=');
         var eqList = eqData.content || eqData;
-        var r2 = await Promise.all([apiFetch('/api/computadores/estatísticas').catch(function() { return null; }), apiFetch('/api/manutenções/estatísticas').catch(function() { return null; }), apiFetch('/api/ordens-serviço/estatísticas').catch(function() { return null; })]);
-        renderChartMarcas(eqList); renderChartManTipós(r2[1]); renderChartManutençõesMes(r2[1]); renderChartOSPrioridade(r2[2]); renderChartOSStatus(r2[2]); renderChartManStatus(r2[1]); renderStatsGerais(r2[0], r2[1], r2[2]);
+        var r2 = await Promise.all([apiFetch('/api/computadores/estatisticas').catch(function() { return null; }), apiFetch('/api/manutencoes/estatisticas').catch(function() { return null; }), apiFetch('/api/ordens-servico/estatisticas').catch(function() { return null; })]);
+        renderChartMarcas(eqList); renderChartManTipos(r2[1]); renderChartManutencoesMes(r2[1]); renderChartOSPrioridade(r2[2]); renderChartOSStatus(r2[2]); renderChartManStatus(r2[1]); renderStatsGerais(r2[0], r2[1], r2[2]);
     } catch (e) { showToast('Erro ao carregar relatórios', 'error'); }
 }
 
@@ -1728,20 +1728,20 @@ function renderChartMarcas(eq) {
     ctx._chart = new Chart(ctx, { type: 'bar', data: { labels: s.map(function(x) { return x[0]; }), datasets: [{ label: 'Quantidade', data: s.map(function(x) { return x[1]; }), backgroundColor: cArr, borderRadius: 6, borderSkipped: false, barPercentage: 0.65 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, layout: { padding: { right: 16 } }, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', titleColor: '#00e5c7', bodyColor: '#e4e8f1', borderColor: 'rgba(0,229,199,0.25)', borderWidth: 1, cornerRadius: 8, padding: 10, callbacks: { label: function(c) { return c.raw + ' equipamento(s)'; } } } }, scales: { x: { beginAtZero: true, ticks: { color: '#4e5a72', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)', lineWidth: 1 } }, y: { ticks: { color: '#8892a8', font: { size: 10, weight: '500' } }, grid: { display: false } } } } });
 }
 
-function renderChartManutençõesMes(s) {
-    var ctx = document.getElementById('chartManutençõesMes'); if (!ctx) return; if (ctx._chart) ctx._chart.destroy();
-    var d = (s && s.pórMes) || {}; var keys = Object.keys(d).sort().slice(-8);
+function renderChartManutencoesMes(s) {
+    var ctx = document.getElementById('chartManutencoesMes'); if (!ctx) return; if (ctx._chart) ctx._chart.destroy();
+    var d = (s && s.porMes) || {}; var keys = Object.keys(d).sort().slice(-8);
     var lb = keys.map(function(k) { var p = k.split('-'); return p[1] + '/' + p[0].slice(2); });
     var vl = keys.map(function(k) { return d[k]; });
     if (lb.length === 0) { lb = ['Sem dados']; vl = [0]; }
     var gFill = ctx.getContext('2d').createLinearGradient(0,0,0,260); gFill.addColorStop(0,'rgba(125,252,228,0.25)'); gFill.addColorStop(0.5,'rgba(125,252,228,0.08)'); gFill.addColorStop(1,'rgba(125,252,228,0.01)');
     var gLine = ctx.getContext('2d').createLinearGradient(0,0,400,0); gLine.addColorStop(0,'#7dfce4'); gLine.addColorStop(0.5,'#50e8d0'); gLine.addColorStop(1,'#30c8b0');
-    ctx._chart = new Chart(ctx, { type: 'line', data: { labels: lb, datasets: [{ label: 'Manutenções', data: vl, borderColor: gLine, backgroundColor: gFill, fill: true, tension: 0.4, pointRadius: 4, póintBackgroundColor: '#00e5c7', póintBorderColor: '#0c1022', póintBorderWidth: 2, póintHoverRadius: 7, póintHoverBackgroundColor: '#00e5c7', póintHoverBorderColor: '#fff', póintHoverBorderWidth: 2, borderWidth: 2.5 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 8, bottom: 4 } }, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', titleColor: '#00e5c7', bodyColor: '#e4e8f1', borderColor: 'rgba(0,229,199,0.25)', borderWidth: 1, cornerRadius: 8, padding: 10, callbacks: { label: function(c) { return c.raw + ' manutenção(oes)'; } } } }, scales: { y: { beginAtZero: true, ticks: { color: '#4e5a72', font: { size: 10 }, stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.03)', lineWidth: 1 } }, x: { ticks: { color: '#8892a8', font: { size: 10 } }, grid: { display: false } } } } });
+    ctx._chart = new Chart(ctx, { type: 'line', data: { labels: lb, datasets: [{ label: 'Manutenções', data: vl, borderColor: gLine, backgroundColor: gFill, fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#00e5c7', pointBorderColor: '#0c1022', pointBorderWidth: 2, pointHoverRadius: 7, pointHoverBackgroundColor: '#00e5c7', pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, borderWidth: 2.5 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 8, bottom: 4 } }, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', titleColor: '#00e5c7', bodyColor: '#e4e8f1', borderColor: 'rgba(0,229,199,0.25)', borderWidth: 1, cornerRadius: 8, padding: 10, callbacks: { label: function(c) { return c.raw + ' manutenção(oes)'; } } } }, scales: { y: { beginAtZero: true, ticks: { color: '#4e5a72', font: { size: 10 }, stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.03)', lineWidth: 1 } }, x: { ticks: { color: '#8892a8', font: { size: 10 } }, grid: { display: false } } } } });
 }
 
-function renderChartManTipós(man) {
+function renderChartManTipos(man) {
     var ctx = document.getElementById('chartManTipó'); if (!ctx) return; if (ctx._chart) ctx._chart.destroy();
-    var d = (man && man.pórTipó) || {}; var labels = Object.keys(d); var vals = Object.values(d);
+    var d = (man && man.porTipo) || {}; var labels = Object.keys(d); var vals = Object.values(d);
     if (labels.length === 0) { labels = ['Sem dados']; vals = [0]; }
     var palette = [['#7dfce4','#30c8a8','#0affdc'],['#b090f0','#9070d0','#c0a0ff'],['#f080b0','#d06090','#ff70a0'],['#f0b060','#d09040','#ffb840'],['#70e8a0','#40c880','#60ffb0'],['#70b0f0','#5090d0','#60c0ff']];
     var cArr = labels.map(function(_, i) { var p = palette[i % palette.length]; var g = ctx.getContext('2d').createRadialGradient(90,90,5,90,90,160); g.addColorStop(0,'#ffffff'); g.addColorStop(0.08,p[2]); g.addColorStop(0.25,p[0]); g.addColorStop(0.65,p[0]); g.addColorStop(1,p[1]); return g; });
@@ -1750,7 +1750,7 @@ function renderChartManTipós(man) {
 
 function renderChartOSPrioridade(os) {
     var ctx = document.getElementById('chartOSPrioridade'); if (!ctx) return; if (ctx._chart) ctx._chart.destroy();
-    var d = (os && os.pórPrioridade) || {}; var labels = Object.keys(d); var vals = Object.values(d);
+    var d = (os && os.porPrioridade) || {}; var labels = Object.keys(d); var vals = Object.values(d);
     if (labels.length === 0) { labels = ['Sem dados']; vals = [0]; }
     var palette = [['#70e8a0','#40c880','#60ffb0'],['#f8e070','#d8b830','#ffe840'],['#f0b060','#d09040','#ffb840'],['#f080b0','#d06090','#ff70a0'],['#b080f0','#9060d0','#c0a0ff']];
     var cArr = labels.map(function(_, i) { var p = palette[i % palette.length]; var g = ctx.getContext('2d').createRadialGradient(90,90,5,90,90,160); g.addColorStop(0,'#ffffff'); g.addColorStop(0.08,p[2]); g.addColorStop(0.25,p[0]); g.addColorStop(0.65,p[0]); g.addColorStop(1,p[1]); return g; });
@@ -1760,7 +1760,7 @@ function renderChartOSPrioridade(os) {
 function renderChartOSStatus(os) {
     var ctx = document.getElementById('chartOSStatus'); if (!ctx) return; if (ctx._chart) ctx._chart.destroy();
     var labels = ['Aberta', 'Em Analise', 'Em Execução', 'Concluída', 'Cancelada'];
-    var vals = [os.abertas || 0, os.emAnalise || 0, os.emExecução || 0, os.concluidas || 0, os.canceladas || 0];
+    var vals = [os.abertas || 0, os.emAnalise || 0, os.emExecucao || 0, os.concluidas || 0, os.canceladas || 0];
     var palette = [['#70b0f0','#5090d0','#60c0ff'],['#f8e070','#d8b830','#ffe840'],['#7dfce4','#30c8a8','#0affdc'],['#70e8a0','#40c880','#60ffb0'],['#f08080','#d06060','#ff7070']];
     var cArr = labels.map(function(_, i) { var p = palette[i]; var g = ctx.getContext('2d').createRadialGradient(90,90,5,90,90,160); g.addColorStop(0,'#ffffff'); g.addColorStop(0.08,p[2]); g.addColorStop(0.25,p[0]); g.addColorStop(0.65,p[0]); g.addColorStop(1,p[1]); return g; });
     ctx._chart = new Chart(ctx, { type: 'doughnut', data: { labels: labels, datasets: [{ data: vals, backgroundColor: cArr, borderWidth: 0, hoverOffset: 8 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '65%', layout: { padding: 8 }, plugins: { legend: { position: 'bottom', labels: { color: '#8892a8', padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 10, family: 'Inter' } } }, tooltip: { backgroundColor: 'rgba(10,16,32,0.95)', titleColor: '#00e5c7', bodyColor: '#e4e8f1', borderColor: 'rgba(0,229,199,0.25)', borderWidth: 1, cornerRadius: 8, padding: 10, callbacks: { label: function(c) { var total = c.dataset.data.reduce(function(a, b) { return a + b; }, 0); var pct = total > 0 ? Math.round(c.raw / total * 100) : 0; return c.label + ': ' + c.raw + ' (' + pct + '%)'; } } } } } });
@@ -1768,7 +1768,7 @@ function renderChartOSStatus(os) {
 
 function renderChartManStatus(man) {
     var ctx = document.getElementById('chartManStatus'); if (!ctx) return; if (ctx._chart) ctx._chart.destroy();
-    var d = (man && man.pórStatus) || {}; var labels = Object.keys(d); var vals = Object.values(d);
+    var d = (man && man.porStatus) || {}; var labels = Object.keys(d); var vals = Object.values(d);
     if (labels.length === 0) { labels = ['Sem dados']; vals = [0]; }
     var palette = [['#f8e070','#d8b830','#ffe840'],['#7dfce4','#30c8a8','#0affdc'],['#70e8a0','#40c880','#60ffb0'],['#f08080','#d06060','#ff7070'],['#909098','#707078','#b0b0b8']];
     var cArr = labels.map(function(_, i) { var p = palette[i % palette.length]; var g = ctx.getContext('2d').createLinearGradient(0,0,0,260); g.addColorStop(0,'#ffffff'); g.addColorStop(0.05,p[2]); g.addColorStop(0.15,p[0]); g.addColorStop(0.6,p[0]); g.addColorStop(1,p[1]); return g; });
@@ -1812,7 +1812,7 @@ function exportRelatóriosCSV() {
 function renderStatsGerais(eq, man, os) {
     var div = document.getElementById('statsGerais'); if (!div) return; eq = eq || {}; man = man || {}; os = os || {};
     _relData = { eq: eq, man: man, os: os };
-    var totalMan = (eq.manutençãoPreditiva || 0) + (eq.manutençãoPreventiva || 0) + (eq.manutençãoEmergencial || 0);
+    var totalMan = (eq.manutencaoPreditiva || 0) + (eq.manutencaoPreventiva || 0) + (eq.manutencaoEmergencial || 0);
     var html = '';
     html += '<div class="stat-card-group"><div class="stat-card-group-title"><i class="fas fa-desktop"></i> COMPUTADORES</div><div class="stat-card-items">';
     html += '<div class="stat-card-item" onclick="toggleStatDetail(\'eq-total\')" data-key="eq-total"><div class="stat-card-icon cyan"><i class="fas fa-desktop"></i></div><div><div class="stat-card-value">' + (eq.total || 0) + '</div><div class="stat-card-label">Total Computadores</div></div></div>';
@@ -1833,7 +1833,7 @@ function renderStatsGerais(eq, man, os) {
     html += '<div class="stat-card-group" style="margin-top:14px;"><div class="stat-card-group-title"><i class="fas fa-clipboard-list"></i> ORDENS DE SERVICO</div><div class="stat-card-items">';
     html += '<div class="stat-card-item" onclick="toggleStatDetail(\'os-total\')" data-key="os-total"><div class="stat-card-icon purple"><i class="fas fa-clipboard-list"></i></div><div><div class="stat-card-value">' + (os.total || 0) + '</div><div class="stat-card-label">Total OS</div></div></div>';
     html += '<div class="stat-card-item" onclick="toggleStatDetail(\'os-abertas\')" data-key="os-abertas"><div class="stat-card-icon red"><i class="fas fa-folder-open"></i></div><div><div class="stat-card-value">' + (os.abertas || 0) + '</div><div class="stat-card-label">OS Abertas</div></div></div>';
-    html += '<div class="stat-card-item" onclick="toggleStatDetail(\'os-execucao\')" data-key="os-execucao"><div class="stat-card-icon cyan"><i class="fas fa-cogs"></i></div><div><div class="stat-card-value">' + (os.emExecução || 0) + '</div><div class="stat-card-label">OS Em Execução</div></div></div>';
+    html += '<div class="stat-card-item" onclick="toggleStatDetail(\'os-execucao\')" data-key="os-execucao"><div class="stat-card-icon cyan"><i class="fas fa-cogs"></i></div><div><div class="stat-card-value">' + (os.emExecucao || 0) + '</div><div class="stat-card-label">OS Em Execução</div></div></div>';
     html += '<div class="stat-card-item" onclick="toggleStatDetail(\'os-concluidas\')" data-key="os-concluidas"><div class="stat-card-icon green"><i class="fas fa-check-circle"></i></div><div><div class="stat-card-value">' + (os.concluidas || 0) + '</div><div class="stat-card-label">OS Concluídas</div></div></div>';
     html += '</div></div>';
     div.innerHTML = html;
@@ -1846,7 +1846,7 @@ function renderStatsGerais(eq, man, os) {
 }
 
 // ==========================================
-// STAT DETAIL PANELS (Repórts)
+// STAT DETAIL PANELS (Reports)
 // ==========================================
 function toggleStatDetail(key) {
     if (_activeStatKey === key) { closeStatDetail(); return; }
@@ -1906,32 +1906,32 @@ function renderStatDetailPanel(key) {
         });
     } else if (key === 'man-total') {
         title = 'Todas as Manutenções'; icon = 'fa-wrench'; color = 'orange';
-        apiFetch('/api/manutenções?page=0&size=100').then(function(d) {
+        apiFetch('/api/manutencoes?page=0&size=100').then(function(d) {
             var list = d.content || d || [];
             renderStatDetailHTML(container, title, icon, color, list.map(function(m) {
                 var st = statusMap[m.status] || 'badge-pendente';
-                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--orange-bg);color:var(--orange);"><i class="fas fa-wrench"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(m.computadorNome || 'PC #' + m.computadorId) + '</div><div class="stat-detail-item-sub">' + escapeHtml(m.tipó) + ' - ' + escapeHtml(m.tecnicoRespónsável || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + st + '">' + escapeHtml(m.status.replace(/_/g, ' ')) + '</span></div></div>';
+                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--orange-bg);color:var(--orange);"><i class="fas fa-wrench"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(m.computadorNome || 'PC #' + m.computadorId) + '</div><div class="stat-detail-item-sub">' + escapeHtml(m.tipo) + ' - ' + escapeHtml(m.tecnicoResponsavel || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + st + '">' + escapeHtml(m.status.replace(/_/g, ' ')) + '</span></div></div>';
             }).join(''));
         });
     } else if (key === 'man-pendentes') {
         title = 'Manutenções Pendentes'; icon = 'fa-clock'; color = 'yellow';
-        apiFetch('/api/manutenções?page=0&size=100&status=PENDENTE').then(function(d) {
+        apiFetch('/api/manutencoes?page=0&size=100&status=PENDENTE').then(function(d) {
             var list = d.content || d || [];
             renderStatDetailHTML(container, title, icon, color, list.map(function(m) {
-                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--yellow-bg);color:var(--yellow);"><i class="fas fa-clock"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(m.computadorNome || 'PC #' + m.computadorId) + '</div><div class="stat-detail-item-sub">' + escapeHtml(m.tipó) + ' - ' + escapeHtml(m.tecnicoRespónsável || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-pendente">PENDENTE</span></div></div>';
+                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--yellow-bg);color:var(--yellow);"><i class="fas fa-clock"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(m.computadorNome || 'PC #' + m.computadorId) + '</div><div class="stat-detail-item-sub">' + escapeHtml(m.tipo) + ' - ' + escapeHtml(m.tecnicoResponsavel || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-pendente">PENDENTE</span></div></div>';
             }).join(''));
         });
     } else if (key === 'man-concluidas') {
         title = 'Manutenções Concluídas'; icon = 'fa-check-double'; color = 'green';
-        apiFetch('/api/manutenções?page=0&size=100&status=CONCLUIDA').then(function(d) {
+        apiFetch('/api/manutencoes?page=0&size=100&status=CONCLUIDA').then(function(d) {
             var list = d.content || d || [];
             renderStatDetailHTML(container, title, icon, color, list.map(function(m) {
-                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--green-bg);color:var(--green);"><i class="fas fa-check-double"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(m.computadorNome || 'PC #' + m.computadorId) + '</div><div class="stat-detail-item-sub">' + escapeHtml(m.tipó) + ' - ' + escapeHtml(m.tecnicoRespónsável || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-concluida">CONCLUIDA</span></div></div>';
+                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--green-bg);color:var(--green);"><i class="fas fa-check-double"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(m.computadorNome || 'PC #' + m.computadorId) + '</div><div class="stat-detail-item-sub">' + escapeHtml(m.tipo) + ' - ' + escapeHtml(m.tecnicoResponsavel || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-concluida">CONCLUIDA</span></div></div>';
             }).join(''));
         });
     } else if (key === 'os-total') {
         title = 'Todas as Ordens de Serviço'; icon = 'fa-clipboard-list'; color = 'purple';
-        apiFetch('/api/ordens-serviço?page=0&size=100').then(function(d) {
+        apiFetch('/api/ordens-servico?page=0&size=100').then(function(d) {
             var list = d.content || d || [];
             renderStatDetailHTML(container, title, icon, color, list.map(function(o) {
                 var st = statusMap[o.status] || 'badge-pendente';
@@ -1940,7 +1940,7 @@ function renderStatDetailPanel(key) {
         });
     } else if (key === 'os-abertas') {
         title = 'OS Abertas'; icon = 'fa-folder-open'; color = 'red';
-        Promise.all([apiFetch('/api/ordens-serviço?page=0&size=100&status=ABERTA'), apiFetch('/api/ordens-serviço?page=0&size=100&status=EM_ANALISE')]).then(function(results) {
+        Promise.all([apiFetch('/api/ordens-servico?page=0&size=100&status=ABERTA'), apiFetch('/api/ordens-servico?page=0&size=100&status=EM_ANALISE')]).then(function(results) {
             var list = [];
             results.forEach(function(d) { list = list.concat(d.content || d || []); });
             renderStatDetailHTML(container, title, icon, color, list.map(function(o) {
@@ -1950,18 +1950,18 @@ function renderStatDetailPanel(key) {
         });
     } else if (key === 'os-execucao') {
         title = 'OS em Execução'; icon = 'fa-cogs'; color = 'cyan';
-        apiFetch('/api/ordens-serviço?page=0&size=100&status=EM_EXECUCAO').then(function(d) {
+        apiFetch('/api/ordens-servico?page=0&size=100&status=EM_EXECUCAO').then(function(d) {
             var list = d.content || d || [];
             renderStatDetailHTML(container, title, icon, color, list.map(function(o) {
-                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--cyan-bg);color:var(--cyan);"><i class="fas fa-cogs"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(o.titulo) + '</div><div class="stat-detail-item-sub">' + escapeHtml(o.computadorNome || 'Sem vínculo') + ' - ' + escapeHtml(o.tecnicoRespónsável || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-em-execucao">EM EXECUCAO</span></div></div>';
+                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--cyan-bg);color:var(--cyan);"><i class="fas fa-cogs"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(o.titulo) + '</div><div class="stat-detail-item-sub">' + escapeHtml(o.computadorNome || 'Sem vínculo') + ' - ' + escapeHtml(o.tecnicoResponsavel || 'Sem tecnico') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-em-execucao">EM EXECUCAO</span></div></div>';
             }).join(''));
         });
     } else if (key === 'os-concluidas') {
         title = 'OS Concluídas'; icon = 'fa-check-circle'; color = 'green';
-        apiFetch('/api/ordens-serviço?page=0&size=100&status=CONCLUIDA').then(function(d) {
+        apiFetch('/api/ordens-servico?page=0&size=100&status=CONCLUIDA').then(function(d) {
             var list = d.content || d || [];
             renderStatDetailHTML(container, title, icon, color, list.map(function(o) {
-                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--green-bg);color:var(--green);"><i class="fas fa-check-circle"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(o.titulo) + '</div><div class="stat-detail-item-sub">' + escapeHtml(o.computadorNome || 'Sem vínculo') + ' - ' + escapeHtml(o.tecnicoRespónsável || '') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-concluida">CONCLUIDA</span></div></div>';
+                return '<div class="stat-detail-item"><div class="stat-detail-item-icon" style="background:var(--green-bg);color:var(--green);"><i class="fas fa-check-circle"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(o.titulo) + '</div><div class="stat-detail-item-sub">' + escapeHtml(o.computadorNome || 'Sem vínculo') + ' - ' + escapeHtml(o.tecnicoResponsavel || '') + '</div></div><div class="stat-detail-item-badge"><span class="badge badge-concluida">CONCLUIDA</span></div></div>';
             }).join(''));
         });
     }
@@ -2042,7 +2042,7 @@ async function loadLogs(page) {
     var usuario = (document.getElementById('log-busca-usuario') || {}).value || '';
     var entidade = (document.getElementById('log-filtro-entidade') || {}).value || '';
     try {
-        var d = await apiFetch('/api/logs?page=' + currentPage.logs + '&size=15&usuario=' + encodeURICompónent(usuario) + '&entidade=' + encodeURICompónent(entidade));
+        var d = await apiFetch('/api/logs?page=' + currentPage.logs + '&size=15&usuario=' + encodeURIComponent(usuario) + '&entidade=' + encodeURIComponent(entidade));
         renderLogs(d);
     } catch (e) {
         var tb = document.querySelector('#logsTable tbody');
@@ -2074,29 +2074,29 @@ function renderLogs(data) {
 // ==========================================
 // USERS
 // ==========================================
-async function loadUsuários() {
+async function loadUsuarios() {
     try {
-        var d = await apiFetch('/api/usuários');
+        var d = await apiFetch('/api/usuarios');
         var s = (document.getElementById('user-busca-input') || {}).value || '';
         if (s) { var sl = s.toLowerCase(); d = (d || []).filter(function(x) { return (x.nomeCompleto || '').toLowerCase().indexOf(sl) !== -1 || (x.username || '').toLowerCase().indexOf(sl) !== -1 || (x.email || '').toLowerCase().indexOf(sl) !== -1; }); }
-        renderUsuários(d);
+        renderUsuarios(d);
     } catch (e) {
-        var tb = document.querySelector('#usuáriosTable tbody');
+        var tb = document.querySelector('#usuariosTable tbody');
         if (tb) tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)"><i class="fas fa-inbox"></i> Erro ao carregar</td></tr>';
     }
 }
 
-function renderUsuários(usuários) {
-    var tb = document.querySelector('#usuáriosTable tbody');
+function renderUsuarios(usuarios) {
+    var tb = document.querySelector('#usuariosTable tbody');
     if (!tb) return;
-    tb.innerHTML = usuários.map(function(u) {
-        return '<tr><td class="font-medium">' + u.id + '</td><td>' + escapeHtml(u.nomeCompleto) + '</td><td class="font-mono">' + escapeHtml(u.username) + '</td><td>' + escapeHtml(u.email || '-') + '</td><td><span class="badge badge-' + escapeHtml(u.perfil.toLowerCase()) + '">' + escapeHtml(u.perfil) + '</span></td><td><span class="badge badge-' + (u.ativo ? 'ativo' : 'cancelada') + '">' + (u.ativo ? 'Ativo' : 'Inativo') + '</span></td><td><div style="display:flex;gap:4px;"><button onclick="showUsuárioForm(' + u.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'usuario\',' + u.id + ',\'' + escapeJsStr(u.nomeCompleto) + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
+    tb.innerHTML = usuarios.map(function(u) {
+        return '<tr><td class="font-medium">' + u.id + '</td><td>' + escapeHtml(u.nomeCompleto) + '</td><td class="font-mono">' + escapeHtml(u.username) + '</td><td>' + escapeHtml(u.email || '-') + '</td><td><span class="badge badge-' + escapeHtml(u.perfil.toLowerCase()) + '">' + escapeHtml(u.perfil) + '</span></td><td><span class="badge badge-' + (u.ativo ? 'ativo' : 'cancelada') + '">' + (u.ativo ? 'Ativo' : 'Inativo') + '</span></td><td><div style="display:flex;gap:4px;"><button onclick="showUsuarioForm(' + u.id + ')" class="action-btn action-btn-edit"><i class="fas fa-pen"></i></button><button onclick="confirmDelete(\'usuario\',' + u.id + ',\'' + escapeJsStr(u.nomeCompleto) + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></div></td></tr>';
     }).join('');
 }
 
-async function showUsuárioForm(id) {
+async function showUsuarioForm(id) {
     var u = { username: '', nomeCompleto: '', email: '', perfil: 'USUARIO', senha: '' };
-    if (id) { try { u = await apiFetch('/api/usuários/' + id); } catch (e) { showToast('Erro ao carregar usuario: ' + e.message, 'error'); return; } }
+    if (id) { try { u = await apiFetch('/api/usuarios/' + id); } catch (e) { showToast('Erro ao carregar usuario: ' + e.message, 'error'); return; } }
     openModal(id ? 'Editar Usuário' : 'Novo Usuário',
         '<form id="userForm"><div class="form-group"><label class="form-label">Nome Completo *</label><input id="userNome" value="' + escapeAttr(u.nomeCompleto) + '" required class="form-input"></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;"><div class="form-group"><label class="form-label">Username *</label><input id="userUsername" value="' + escapeAttr(u.username) + '" ' + (id ? 'disabled' : '') + ' required class="form-input"></div>' +
@@ -2112,13 +2112,13 @@ async function showUsuárioForm(id) {
         if (!id) p.username = document.getElementById('userUsername').value;
         try {
             if (id) {
-                await apiFetch('/api/usuários/' + id, { method: 'PUT', body: JSON.stringify(p) });
+                await apiFetch('/api/usuarios/' + id, { method: 'PUT', body: JSON.stringify(p) });
                 showToast('Usuário atualizado!');
             } else {
-                await apiFetch('/api/usuários', { method: 'POST', body: JSON.stringify(p) });
+                await apiFetch('/api/usuarios', { method: 'POST', body: JSON.stringify(p) });
                 showToast('Usuário cadastrado!');
             }
-            closeModal(); loadUsuários(); refreshAllData();
+            closeModal(); loadUsuarios(); refreshAllData();
         } catch (e) { showToast(e.message, 'error'); }
     });
 }
@@ -2143,11 +2143,11 @@ function confirmDelete(type, id, name) {
     if (cy) cy.onclick = async function() {
         try {
             if (type === 'computador') await apiFetch('/api/computadores/' + id, { method: 'DELETE' });
-            else if (type === 'manutenção') await apiFetch('/api/manutenções/' + id, { method: 'DELETE' });
-            else if (type === 'ordem') await apiFetch('/api/ordens-serviço/' + id, { method: 'DELETE' });
-            else if (type === 'usuario') await apiFetch('/api/usuários/' + id, { method: 'DELETE' });
+            else if (type === 'manutenção') await apiFetch('/api/manutencoes/' + id, { method: 'DELETE' });
+            else if (type === 'ordem') await apiFetch('/api/ordens-servico/' + id, { method: 'DELETE' });
+            else if (type === 'usuario') await apiFetch('/api/usuarios/' + id, { method: 'DELETE' });
             else if (type === 'departamento') await apiFetch('/api/departamentos/' + id, { method: 'DELETE' });
-            else if (type === 'software') await apiFetch('/api/software-licenças/' + id, { method: 'DELETE' });
+            else if (type === 'software') await apiFetch('/api/software-licencas/' + id, { method: 'DELETE' });
             showToast('Excluído com sucesso!');
             closeConfirm();
             refreshAllData();
@@ -2231,13 +2231,13 @@ function showManual() {
         '<h3 style="color:var(--cyan);font-size:15px;margin:14px 0 10px;">3. Manutenções</h3>' +
         '<p>Registre manutenções corretivas, preventivas, preditivas ou emergenciais. Ao cadastrar uma manutenção, uma OS é criada automaticamente. Ao concluir, o status do computador é atualizado.</p>' +
         '<h3 style="color:var(--cyan);font-size:15px;margin:14px 0 10px;">4. Ordens de Serviço</h3>' +
-        '<p>Gerencie tickets de suporte com prioridade, status, respónsavel e solução. Clique em uma OS na tabela para editar. Use filtros pór status e prioridade.</p>' +
+        '<p>Gerencie tickets de suporte com prioridade, status, respónsavel e solucao. Clique em uma OS na tabela para editar. Use filtros por status e prioridade.</p>' +
         '<h3 style="color:var(--cyan);font-size:15px;margin:14px 0 10px;">5. Setores</h3>' +
         '<p>Gerencie os setores da empresa. Apenas nome é necessário. O número de computadores vinculados é exibido automaticamente.</p>' +
         '<h3 style="color:var(--cyan);font-size:15px;margin:14px 0 10px;">6. Histórico</h3>' +
-        '<p>Visualize todas as operações realizadas no sistema com filtros pór entidade (Computador, Manutenção, OS, etc).</p>' +
+        '<p>Visualize todas as operaçãoções realizadas no sistema com filtros por entidade (Computador, Manutenção, OS, etc).</p>' +
         '<h3 style="color:var(--cyan);font-size:15px;margin:14px 0 10px;">7. Relatórios</h3>' +
-        '<p>Visualize gráficos e estatísticas detalhadas. Clique nos cards de estatísticas para ver os itens individuais. Expórte em CSV ou imprima em PDF.</p>' +
+        '<p>Visualize gráficos e estatisticas detalhadas. Clique nos cards de estatisticas para ver os itens individuais. Exporte em CSV ou imprima em PDF.</p>' +
         '<h3 style="color:var(--cyan);font-size:15px;margin:14px 0 10px;">8. Ferramentas</h3>' +
         '<p>Painel administrativo com status do sistema, H2 Console, Swagger, Actuator e métricas. Apenas usuários ADMIN tem acesso.</p>' +
         '</div>',
@@ -2252,8 +2252,8 @@ function showSystemInfo() {
     apiFetch('/actuator/health').then(function(data) {
         var status = (data && data.status) ? escapeHtml(data.status) : 'UNKNOWN';
         var dbStatus = 'H2 (embedded)';
-        if (data && data.compónents && data.compónents.db) {
-            dbStatus = data.compónents.db.details ? escapeHtml(data.compónents.db.details.database || dbStatus) : dbStatus;
+        if (data && data.componentes && data.componentes.db) {
+            dbStatus = data.componentes.db.details ? escapeHtml(data.componentes.db.details.database || dbStatus) : dbStatus;
         }
         openModal('Status do Sistema',
             '<div style="padding:10px;">' +
@@ -2329,15 +2329,15 @@ function exportComputadoresCSV() {
         .catch(function(e) { showToast(e.message, 'error'); });
 }
 
-function impórtComputadoresCSV(event) {
+function importComputadoresCSV(event) {
     var file = event.target.files[0];
     if (!file) return;
     var fd = new FormData();
     fd.append('file', file);
-    fetch(API + '/api/computadores/impórt/csv', { method: 'POST', headers: { 'Authorization': 'Bearer ' + getToken() }, body: fd })
-        .then(function(r) { if (!r.ok) throw new Error('Erro na impórtação'); return r.json(); })
-        .then(function(d) { showToast('importados: ' + (d.impórtados || 0) + ' | Ignorados: ' + (d.ignorados || 0), 'success'); loadComputadores(0); })
-        .catch(function(e) { showToast('Erro na impórtação', 'error'); });
+    fetch(API + '/api/computadores/import/csv', { method: 'POST', headers: { 'Authorization': 'Bearer ' + getToken() }, body: fd })
+        .then(function(r) { if (!r.ok) throw new Error('Erro na importação'); return r.json(); })
+        .then(function(d) { showToast('importados: ' + (d.importados || 0) + ' | Ignorados: ' + (d.ignorados || 0), 'success'); loadComputadores(0); })
+        .catch(function(e) { showToast('Erro na importação', 'error'); });
     event.target.value = '';
 }
 
@@ -2348,27 +2348,27 @@ function initFilters() {
     var b = document.getElementById('busca-input'), f = document.getElementById('filtro-status');
     if (b) b.addEventListener('input', debounce(function() { loadComputadores(0); }, 400));
     if (f) f.addEventListener('change', function() { loadComputadores(0); });
-    var mf = document.getElementById('man-filtro-status'); if (mf) mf.addEventListener('change', function() { loadManutenções(0); });
-    var mb = document.getElementById('man-busca-input'); if (mb) mb.addEventListener('input', debounce(function() { loadManutenções(0); }, 400));
+    var mf = document.getElementById('man-filtro-status'); if (mf) mf.addEventListener('change', function() { loadManutencoes(0); });
+    var mb = document.getElementById('man-busca-input'); if (mb) mb.addEventListener('input', debounce(function() { loadManutencoes(0); }, 400));
     var osf = document.getElementById('os-filtro-status'), opf = document.getElementById('os-filtro-prioridade');
-    if (osf) osf.addEventListener('change', function() { loadOrdensServiço(0); });
-    if (opf) opf.addEventListener('change', function() { loadOrdensServiço(0); });
-    var osb = document.getElementById('os-busca-input'); if (osb) osb.addEventListener('input', debounce(function() { loadOrdensServiço(0); }, 400));
+    if (osf) osf.addEventListener('change', function() { loadOrdensServico(0); });
+    if (opf) opf.addEventListener('change', function() { loadOrdensServico(0); });
+    var osb = document.getElementById('os-busca-input'); if (osb) osb.addEventListener('input', debounce(function() { loadOrdensServico(0); }, 400));
     var db = document.getElementById('depto-busca-input'); if (db) db.addEventListener('input', debounce(function() { loadDepartamentos(); }, 400));
-    var ub = document.getElementById('user-busca-input'); if (ub) ub.addEventListener('input', debounce(function() { loadUsuários(); }, 400));
+    var ub = document.getElementById('user-busca-input'); if (ub) ub.addEventListener('input', debounce(function() { loadUsuarios(); }, 400));
     var lu = document.getElementById('log-busca-usuario'); if (lu) lu.addEventListener('input', debounce(function() { loadLogs(0); }, 400));
     var le = document.getElementById('log-filtro-entidade'); if (le) le.addEventListener('change', function() { loadLogs(0); });
-    var sb = document.getElementById('sw-busca-input'); if (sb) sb.addEventListener('input', debounce(function() { loadSoftwareLicenças(0); }, 400));
+    var sb = document.getElementById('sw-busca-input'); if (sb) sb.addEventListener('input', debounce(function() { loadSoftwareLicencas(0); }, 400));
 }
 
 // ==========================================
 // SOFTWARE/LICENCAS
 // ==========================================
-async function loadSoftwareLicenças(page) {
+async function loadSoftwareLicencas(page) {
     if (page !== undefined) currentPage.software = page;
     var t = (document.getElementById('sw-busca-input') || {}).value || '';
     try {
-        var d = await apiFetch('/api/software-licenças?page=' + (currentPage.software || 0) + '&size=10&termo=' + encodeURICompónent(t));
+        var d = await apiFetch('/api/software-licencas?page=' + (currentPage.software || 0) + '&size=10&termo=' + encodeURIComponent(t));
         renderSoftwareLicenças(d);
     } catch (e) {
         var tb = document.querySelector('#softwareTable tbody');
@@ -2386,10 +2386,10 @@ function renderSoftwareLicenças(data) {
         return;
     }
     tb.innerHTML = items.map(function(s) {
-        var exp = s.dataExpiração ? new Date(s.dataExpiração + 'T00:00:00').toLocaleDateString('pt-BR') : '-';
+        var exp = s.dataExpiracao ? new Date(s.dataExpiracao + 'T00:00:00').toLocaleDateString('pt-BR') : '-';
         var expClass = '';
-        if (s.dataExpiração) {
-            var d = new Date(s.dataExpiração + 'T00:00:00');
+        if (s.dataExpiracao) {
+            var d = new Date(s.dataExpiracao + 'T00:00:00');
             var diff = (d - new Date()) / (1000*60*60*24);
             if (diff < 0) expClass = 'color:var(--red);';
             else if (diff < 30) expClass = 'color:var(--yellow);';
@@ -2399,29 +2399,29 @@ function renderSoftwareLicenças(data) {
         return '<tr>' +
             '<td style="font-weight:600;color:var(--text-primary);"><i class="fas fa-key" style="color:var(--purple);margin-right:8px;"></i>' + escapeHtml(s.nomeSoftware) + '</td>' +
             '<td>' + escapeHtml(s.fabricante || '-') + '</td>' +
-            '<td><span class="badge badge-em_andamento">' + escapeHtml(s.tipóLicença || '-') + '</span></td>' +
+            '<td><span class="badge badge-em_andamento">' + escapeHtml(s.tipoLicenca || '-') + '</span></td>' +
             '<td><span class="badge ' + badge + '">' + (s.quantidadeUtilizada || 0) + '/' + (s.quantidadeTotal || 0) + '</span></td>' +
             '<td style="' + expClass + '">' + exp + '</td>' +
             '<td><button onclick="showSoftwareLicençaForm(' + s.id + ')" class="action-btn action-btn-edit"><i class="fas fa-edit"></i></button> ' +
             '<button onclick="confirmDelete(\'software\',' + s.id + ',\'' + escapeJsStr(s.nomeSoftware) + '\')" class="action-btn action-btn-delete"><i class="fas fa-trash"></i></button></td></tr>';
     }).join('');
-    renderPagination('software-pagination', data.totalPages || 1, data.page !== undefined ? data.page : (data.number || 0), loadSoftwareLicenças);
+    renderPagination('software-pagination', data.totalPages || 1, data.page !== undefined ? data.page : (data.number || 0), loadSoftwareLicencas);
 }
 
 async function showSoftwareLicençaForm(id) {
-    var s = { nomeSoftware: '', fabricante: '', chaveLicença: '', tipóLicença: 'PRO', quantidadeTotal: 1, quantidadeUtilizada: 0, dataAquisição: '', dataExpiração: '', observações: '' };
-    if (id) { try { s = await apiFetch('/api/software-licenças/' + id); } catch (e) { showToast('Erro ao carregar licenca: ' + e.message, 'error'); return; } }
+    var s = { nomeSoftware: '', fabricante: '', chaveLicenca: '', tipoLicenca: 'PRO', quantidadeTotal: 1, quantidadeUtilizada: 0, dataAquisicao: '', dataExpiracao: '', observacoes: '' };
+    if (id) { try { s = await apiFetch('/api/software-licencas/' + id); } catch (e) { showToast('Erro ao carregar licenca: ' + e.message, 'error'); return; } }
     openModal(id ? 'Editar Licença' : 'Nova Licença',
         '<form id="swForm">' +
         '<div class="form-row"><div class="form-group"><label class="form-label">Software *</label><input id="swNome" value="' + escapeAttr(s.nomeSoftware || '') + '" required class="form-input" placeholder="Ex: Microsoft Office"></div>' +
         '<div class="form-group"><label class="form-label">Fabricante</label><input id="swFab" value="' + escapeAttr(s.fabricante || '') + '" class="form-input" placeholder="Ex: Microsoft"></div></div>' +
-        '<div class="form-group"><label class="form-label">Chave de Licença</label><input id="swChave" value="' + escapeAttr(s.chaveLicença || '') + '" class="form-input" placeholder="XXXXX-XXXXX-XXXXX"></div>' +
-        '<div class="form-group"><label class="form-label">Tipó</label><select id="swTipó" class="form-input"><option value="PRO"' + (s.tipóLicença === 'PRO' ? ' selected' : '') + '>PRO</option><option value="ENTERPRISE"' + (s.tipóLicença === 'ENTERPRISE' ? ' selected' : '') + '>ENTERPRISE</option><option value="HOME"' + (s.tipóLicença === 'HOME' ? ' selected' : '') + '>HOME</option><option value="EDUCACIONAL"' + (s.tipóLicença === 'EDUCACIONAL' ? ' selected' : '') + '>EDUCACIONAL</option><option value="OEM"' + (s.tipóLicença === 'OEM' ? ' selected' : '') + '>OEM</option><option value="VOLUME"' + (s.tipóLicença === 'VOLUME' ? ' selected' : '') + '>VOLUME</option><option value="OUTRO"' + (s.tipóLicença === 'OUTRO' ? ' selected' : '') + '>OUTRO</option></select></div>' +
+        '<div class="form-group"><label class="form-label">Chave de Licença</label><input id="swChave" value="' + escapeAttr(s.chaveLicenca || '') + '" class="form-input" placeholder="XXXXX-XXXXX-XXXXX"></div>' +
+        '<div class="form-group"><label class="form-label">Tipó</label><select id="swTipó" class="form-input"><option value="PRO"' + (s.tipoLicenca === 'PRO' ? ' selected' : '') + '>PRO</option><option value="ENTERPRISE"' + (s.tipoLicenca === 'ENTERPRISE' ? ' selected' : '') + '>ENTERPRISE</option><option value="HOME"' + (s.tipoLicenca === 'HOME' ? ' selected' : '') + '>HOME</option><option value="EDUCACIONAL"' + (s.tipoLicenca === 'EDUCACIONAL' ? ' selected' : '') + '>EDUCACIONAL</option><option value="OEM"' + (s.tipoLicenca === 'OEM' ? ' selected' : '') + '>OEM</option><option value="VOLUME"' + (s.tipoLicenca === 'VOLUME' ? ' selected' : '') + '>VOLUME</option><option value="OUTRO"' + (s.tipoLicenca === 'OUTRO' ? ' selected' : '') + '>OUTRO</option></select></div>' +
         '<div class="form-row"><div class="form-group"><label class="form-label">Qtde Total</label><input id="swTotal" type="number" min="0" value="' + (s.quantidadeTotal || 1) + '" class="form-input"></div>' +
         '<div class="form-group"><label class="form-label">Qtde Utilizada</label><input id="swUtil" type="number" min="0" value="' + (s.quantidadeUtilizada || 0) + '" class="form-input"></div></div>' +
-        '<div class="form-row"><div class="form-group"><label class="form-label">Data Aquisição</label><input id="swAq" type="date" value="' + (s.dataAquisição || '') + '" class="form-input"></div>' +
-        '<div class="form-group"><label class="form-label">Data Expiração</label><input id="swExp" type="date" value="' + (s.dataExpiração || '') + '" class="form-input"></div></div>' +
-        '<div class="form-group"><label class="form-label">Observações</label><textarea id="swObs" class="form-input" rows="2" placeholder="Observações...">' + escapeHtml(s.observações || '') + '</textarea></div>' +
+        '<div class="form-row"><div class="form-group"><label class="form-label">Data Aquisição</label><input id="swAq" type="date" value="' + (s.dataAquisicao || '') + '" class="form-input"></div>' +
+        '<div class="form-group"><label class="form-label">Data Expiração</label><input id="swExp" type="date" value="' + (s.dataExpiracao || '') + '" class="form-input"></div></div>' +
+        '<div class="form-group"><label class="form-label">Observações</label><textarea id="swObs" class="form-input" rows="2" placeholder="Observações...">' + escapeHtml(s.observacoes || '') + '</textarea></div>' +
         '</form>',
         '<button onclick="closeModal()" class="btn btn-ghost btn-sm">Cancelar</button><button onclick="document.getElementById(\'swForm\').requestSubmit()" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> ' + (id ? 'Salvar' : 'Criar') + '</button>'
     );
@@ -2430,35 +2430,35 @@ async function showSoftwareLicençaForm(id) {
         var p = {
             nomeSoftware: document.getElementById('swNome').value,
             fabricante: document.getElementById('swFab').value || null,
-            chaveLicença: document.getElementById('swChave').value || null,
-            tipóLicença: document.getElementById('swTipó').value,
+            chaveLicenca: document.getElementById('swChave').value || null,
+            tipoLicenca: document.getElementById('swTipó').value,
             quantidadeTotal: parseInt(document.getElementById('swTotal').value) || 1,
             quantidadeUtilizada: parseInt(document.getElementById('swUtil').value) || 0,
-            dataAquisição: document.getElementById('swAq').value || null,
-            dataExpiração: document.getElementById('swExp').value || null,
-            observações: document.getElementById('swObs').value || null
+            dataAquisicao: document.getElementById('swAq').value || null,
+            dataExpiracao: document.getElementById('swExp').value || null,
+            observacoes: document.getElementById('swObs').value || null
         };
         try {
-            if (id) await apiFetch('/api/software-licenças/' + id, { method: 'PUT', body: JSON.stringify(p) });
-            else await apiFetch('/api/software-licenças', { method: 'POST', body: JSON.stringify(p) });
+            if (id) await apiFetch('/api/software-licencas/' + id, { method: 'PUT', body: JSON.stringify(p) });
+            else await apiFetch('/api/software-licencas', { method: 'POST', body: JSON.stringify(p) });
             showToast(id ? 'Licença atualizada!' : 'Licença criada!');
-            closeModal(); loadSoftwareLicenças(currentPage.software || 0);
+            closeModal(); loadSoftwareLicencas(currentPage.software || 0);
         } catch (e) { showToast(e.message, 'error'); }
     });
 }
 
 // GLOBAL REFRESH HELPER
-function refreshCurrentSection(tipó) {
+function refreshCurrentSection(tipo) {
     switch (_currentSection) {
         case 'painel': loadDashboard(); break;
         case 'computadores': loadComputadores(currentPage.computadores); break;
-        case 'manutenções': loadManutenções(currentPage.manutenções); break;
-        case 'ordens-serviço': loadOrdensServiço(currentPage.ordensServiço); break;
+        case 'manutenções': loadManutencoes(currentPage.manutencoes); break;
+        case 'ordens-serviço': loadOrdensServico(currentPage.ordensServico); break;
         case 'departamentos': loadDepartamentos(); break;
-        case 'software-licenças': loadSoftwareLicenças(currentPage.software || 0); break;
+        case 'software-licencas': loadSoftwareLicencas(currentPage.software || 0); break;
         case 'logs': loadLogs(currentPage.logs); break;
-        case 'relatórios': loadRelatórios(); break;
-        case 'usuários': loadUsuários(); break;
+        case 'relatórios': loadRelatorios(); break;
+        case 'usuarios': loadUsuarios(); break;
         case 'admin': loadAdmin(); break;
     }
 }
@@ -2487,7 +2487,7 @@ function closeLightbox() {
 // ==========================================
 function generateRelatórioGeralPDF() {
     showToast('Gerando relatório...', 'info');
-    fetch(API + '/api/repórts/pdf/relatório-geral', {
+    fetch(API + '/api/reports/pdf/relatório-geral', {
         method: 'GET',
         headers: { 'Authorization': 'Bearer ' + getToken() }
     }).then(function(r) {
