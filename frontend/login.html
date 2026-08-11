@@ -382,10 +382,10 @@
 
             <form id="loginForm" autocomplete="off">
                 <div class="form-group">
-                    <label class="form-label" for="username">Usuario</label>
+                    <label class="form-label" for="username">Usuário</label>
                     <div class="input-wrapper">
                         <i class="fas fa-user"></i>
-                        <input type="text" id="username" name="username" placeholder="Digite seu usuario" required autocomplete="username" autofocus>
+                        <input type="text" id="username" name="username" placeholder="Digite seu usuário" required autocomplete="username" autofocus>
                     </div>
                 </div>
 
@@ -475,7 +475,7 @@
                 loginBtn.innerHTML = '<span><i class="fas fa-check"></i> <span class="btn-text">Sucesso!</span></span>';
                 setTimeout(function() { window.location.href = 'index.html'; }, 600);
             } catch (err) {
-                showError('Erro de conexao. Verifique sua rede.');
+                showError('Erro de conexão. Verifique sua rede.');
                 setLoading(false);
             }
         });
