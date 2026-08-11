@@ -48,26 +48,26 @@ public class DataInitializer implements CommandLineRunner {
 
         if (computadorRepository.count() == 0) {
             log.info("Criando equipamentos iniciais...");
-            createComputador("PC-TI-001", "SN-2024-001", "Dell Optiplex 7090", "Intel Core i7-11700", "16GB", "512GB SSD", "Joao Silva", "Dell", StatusComputador.ATIVO);
-            createComputador("PC-TI-002", "SN-2024-002", "HP ProDesk 400 G7", "Intel Core i5-10500", "8GB", "256GB SSD", "Maria Santos", "HP", StatusComputador.ATIVO);
-            createComputador("PC-TI-003", "SN-2024-003", "Lenovo ThinkCentre M70s", "Intel Core i5-11500", "16GB", "512GB SSD", "Pedro Costa", "Lenovo", StatusComputador.MANUTENCAO_PREVENTIVA);
-            createComputador("PC-TI-004", "SN-2024-004", "Dell Latitude 5520", "Intel Core i7-1165G7", "16GB", "1TB SSD", "Ana Oliveira", "Dell", StatusComputador.ATIVO);
-            createComputador("PC-TI-005", "SN-2024-005", "HP EliteDesk 800 G5", "Intel Core i7-9700", "32GB", "512GB SSD", "Carlos Pereira", "HP", StatusComputador.MANUTENCAO_EMERGENCIAL);
-            createComputador("PC-TI-006", "SN-2024-006", "Lenovo ThinkPad T480", "Intel Core i5-8250U", "8GB", "256GB SSD", "Lucia Ferreira", "Lenovo", StatusComputador.ATIVO);
-            createComputador("PC-TI-007", "SN-2024-007", "Acer Aspire TC-780", "Intel Core i3-7100", "4GB", "1TB HDD", "Roberto Almeida", "Acer", StatusComputador.MANUTENCAO_PREDITIVA);
-            createComputador("PC-TI-008", "SN-2024-008", "Dell Inspiron 3670", "Intel Core i5-8400", "8GB", "1TB HDD", "Fernanda Lima", "Dell", StatusComputador.ATIVO);
-            createComputador("PC-TI-009", "SN-2024-009", "HP Pavilion 590", "Intel Core i5-8500", "12GB", "256GB SSD + 1TB HDD", "Ricardo Souza", "HP", StatusComputador.CONCLUIDO);
-            createComputador("PC-TI-010", "SN-2024-010", "Lenovo IdeaCentre 510", "AMD Ryzen 5 3600", "8GB", "512GB SSD", "Juliana Martins", "Lenovo", StatusComputador.ATIVO);
-            createComputador("PC-TI-011", "SN-2024-011", "Dell OptiPlex 3080", "Intel Core i3-10100", "4GB", "128GB SSD", "Marcos Ribeiro", "Dell", StatusComputador.MANUTENCAO_PREVENTIVA);
-            createComputador("PC-TI-012", "SN-2024-012", "HP ProBook 450 G7", "Intel Core i5-10210U", "8GB", "512GB SSD", "Patricia Gomes", "HP", StatusComputador.ATIVO);
-            createComputador("PC-TI-013", "SN-2024-013", "Lenovo V530", "Intel Core i7-8700", "16GB", "256GB SSD", "Thiago Nunes", "Lenovo", StatusComputador.MANUTENCAO_EMERGENCIAL);
-            createComputador("PC-TI-014", "SN-2024-014", "Acer Veriton M4660G", "Intel Core i5-9400", "8GB", "1TB HDD", "Camila Araujo", "Acer", StatusComputador.ATIVO);
-            createComputador("PC-TI-015", "SN-2024-015", "Dell Vostro 3670", "Intel Core i3-9100", "4GB", "1TB HDD", "Eduardo Barbosa", "Dell", StatusComputador.CONCLUIDO);
-            createComputador("PC-TI-016", "SN-2024-016", "HP 280 G3", "Intel Core i5-8500", "8GB", "256GB SSD", "Vanessa Dias", "HP", StatusComputador.ATIVO);
-            createComputador("PC-TI-017", "SN-2024-017", "Lenovo ThinkCentre M920t", "Intel Core i7-8700", "32GB", "512GB SSD", "Leonardo Cardoso", "Lenovo", StatusComputador.MANUTENCAO_PREDITIVA);
-            createComputador("PC-TI-018", "SN-2024-018", "Dell Precision 3630", "Intel Xeon E-2124", "16GB", "256GB SSD", "Amanda Rocha", "Dell", StatusComputador.ATIVO);
-            createComputador("PC-TI-019", "SN-2024-019", "HP Z240 Tower", "Intel Core i5-7500", "8GB", "512GB SSD", "Bruno Carvalho", "HP", StatusComputador.MANUTENCAO_PREVENTIVA);
-            createComputador("PC-TI-020", "SN-2024-020", "Lenovo ThinkStation P330", "Intel Core i7-8700", "32GB", "1TB SSD", "Sabrina Melo", "Lenovo", StatusComputador.ATIVO);
+            createComputador("PC-TI-001", "SN-2024-001", "Dell Optiplex 7090", "Intel Core i7-11700", "16GB", "512GB SSD", "Joao Silva", "Dell", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(1));
+            createComputador("PC-TI-002", "SN-2024-002", "HP ProDesk 400 G7", "Intel Core i5-10500", "8GB", "256GB SSD", "Maria Santos", "HP", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(2));
+            createComputador("PC-TI-003", "SN-2024-003", "Lenovo ThinkCentre M70s", "Intel Core i5-11500", "16GB", "512GB SSD", "Pedro Costa", "Lenovo", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(5));
+            createComputador("PC-TI-004", "SN-2024-004", "Dell Latitude 5520", "Intel Core i7-1165G7", "16GB", "1TB SSD", "Ana Oliveira", "Dell", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(3));
+            createComputador("PC-TI-005", "SN-2024-005", "HP EliteDesk 800 G5", "Intel Core i7-9700", "32GB", "512GB SSD", "Carlos Pereira", "HP", StatusComputador.MANUTENCAO_EMERGENCIAL, LocalDateTime.now().minusMonths(11));
+            createComputador("PC-TI-006", "SN-2024-006", "Lenovo ThinkPad T480", "Intel Core i5-8250U", "8GB", "256GB SSD", "Lucia Ferreira", "Lenovo", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(6));
+            createComputador("PC-TI-007", "SN-2024-007", "Acer Aspire TC-780", "Intel Core i3-7100", "4GB", "1TB HDD", "Roberto Almeida", "Acer", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(7));
+            createComputador("PC-TI-008", "SN-2024-008", "Dell Inspiron 3670", "Intel Core i5-8400", "8GB", "1TB HDD", "Fernanda Lima", "Dell", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(4));
+            createComputador("PC-TI-009", "SN-2024-009", "HP Pavilion 590", "Intel Core i5-8500", "12GB", "256GB SSD + 1TB HDD", "Ricardo Souza", "HP", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(10));
+            createComputador("PC-TI-010", "SN-2024-010", "Lenovo IdeaCentre 510", "AMD Ryzen 5 3600", "8GB", "512GB SSD", "Juliana Martins", "Lenovo", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(1));
+            createComputador("PC-TI-011", "SN-2024-011", "Dell OptiPlex 3080", "Intel Core i3-10100", "4GB", "128GB SSD", "Marcos Ribeiro", "Dell", StatusComputador.MANUTENCAO_PREVENTIVA, LocalDateTime.now().minusMonths(7));
+            createComputador("PC-TI-012", "SN-2024-012", "HP ProBook 450 G7", "Intel Core i5-10210U", "8GB", "512GB SSD", "Patricia Gomes", "HP", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(2));
+            createComputador("PC-TI-013", "SN-2024-013", "Lenovo V530", "Intel Core i7-8700", "16GB", "256GB SSD", "Thiago Nunes", "Lenovo", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(12));
+            createComputador("PC-TI-014", "SN-2024-014", "Acer Veriton M4660G", "Intel Core i5-9400", "8GB", "1TB HDD", "Camila Araujo", "Acer", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(9));
+            createComputador("PC-TI-015", "SN-2024-015", "Dell Vostro 3670", "Intel Core i3-9100", "4GB", "1TB HDD", "Eduardo Barbosa", "Dell", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(3));
+            createComputador("PC-TI-016", "SN-2024-016", "HP 280 G3", "Intel Core i5-8500", "8GB", "256GB SSD", "Vanessa Dias", "HP", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(5));
+            createComputador("PC-TI-017", "SN-2024-017", "Lenovo ThinkCentre M920t", "Intel Core i7-8700", "32GB", "512GB SSD", "Leonardo Cardoso", "Lenovo", StatusComputador.MANUTENCAO_PREDITIVA, LocalDateTime.now().minusMonths(6));
+            createComputador("PC-TI-018", "SN-2024-018", "Dell Precision 3630", "Intel Xeon E-2124", "16GB", "256GB SSD", "Amanda Rocha", "Dell", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(4));
+            createComputador("PC-TI-019", "SN-2024-019", "HP Z240 Tower", "Intel Core i5-7500", "8GB", "512GB SSD", "Bruno Carvalho", "HP", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(8));
+            createComputador("PC-TI-020", "SN-2024-020", "Lenovo ThinkStation P330", "Intel Core i7-8700", "32GB", "1TB SSD", "Sabrina Melo", "Lenovo", StatusComputador.ATIVO, LocalDateTime.now().minusMonths(1));
             log.info("20 equipamentos criados com sucesso!");
         }
 
@@ -228,7 +228,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private void createComputador(String nomePc, String numeroSerie, String modeloMarca, String processador,
                                    String memoriaRam, String armazenamento, String usuarioDesignado,
-                                   String fornecedor, StatusComputador status) {
+                                   String fornecedor, StatusComputador status, LocalDateTime dataInicioCiclo) {
         Computador c = Computador.builder()
             .nomePc(nomePc)
             .numeroSerie(numeroSerie)
@@ -240,6 +240,7 @@ public class DataInitializer implements CommandLineRunner {
             .fornecedor(fornecedor)
             .status(status)
             .manutencaoConcluidaSemestre(false)
+            .dataInicioCiclo(dataInicioCiclo)
             .build();
         computadorRepository.save(c);
     }

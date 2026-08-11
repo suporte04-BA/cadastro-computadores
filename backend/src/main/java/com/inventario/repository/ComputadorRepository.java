@@ -36,11 +36,11 @@ public interface ComputadorRepository extends JpaRepository<Computador, Long> {
                              @Param("padrao") String padrao,
                              Pageable pageable);
 
-    @Query("SELECT COUNT(c) FROM Computador c WHERE c.proximaManutencao IS NOT NULL AND c.proximaManutencao < CURRENT_TIMESTAMP")
-    long countManutencaoVencida();
+    @Query("SELECT COUNT(c) FROM Computador c WHERE c.dataInicioCiclo IS NOT NULL AND c.dataInicioCiclo < :limite")
+    long countManutencaoVencida(@Param("limite") java.time.LocalDateTime limite);
 
-    @Query("SELECT c FROM Computador c WHERE c.proximaManutencao IS NOT NULL AND c.proximaManutencao < CURRENT_TIMESTAMP ORDER BY c.proximaManutencao ASC")
-    List<Computador> findManutencaoVencida();
+    @Query("SELECT c FROM Computador c WHERE c.dataInicioCiclo IS NOT NULL AND c.dataInicioCiclo < :limite ORDER BY c.dataInicioCiclo ASC")
+    List<Computador> findManutencaoVencida(@Param("limite") java.time.LocalDateTime limite);
 
     @Query("SELECT c.status, COUNT(c) FROM Computador c GROUP BY c.status")
     List<Object[]> countGroupByStatus();

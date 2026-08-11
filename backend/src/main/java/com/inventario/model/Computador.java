@@ -77,6 +77,12 @@ public class Computador extends Auditable {
     @Column(name = "proxima_manutencao")
     private LocalDateTime proximaManutencao;
 
+    @Column(name = "data_inicio_ciclo")
+    private LocalDateTime dataInicioCiclo;
+
+    @Column(name = "fase_ciclo", length = 20)
+    private String faseCiclo;
+
     @Column(name = "data_aquisicao")
     private LocalDate dataAquisicao;
 

@@ -66,5 +66,10 @@ public class ComputadorDTO {
 
     private LocalDateTime proximaManutencao;
 
+    private LocalDateTime dataInicioCiclo;
+    private Long diasDesdeInicioCiclo;
+    private Long diasRestantes;
+    private String faseCiclo;
+
     private LocalDateTime dataCadastro;
 }

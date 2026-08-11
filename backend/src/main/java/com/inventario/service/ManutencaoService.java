@@ -109,6 +109,17 @@ public class ManutencaoService {
             }
             if (newStatus == StatusManutencao.CONCLUIDA) {
                 m.setDataConclusao(java.time.LocalDateTime.now());
+                Computador comp = m.getComputador();
+                if (comp != null) {
+                    comp.setManutencaoConcluidaSemestre(true);
+                    comp.setDataUltimaManutencao(java.time.LocalDateTime.now());
+                    if (m.getTipo() == TipoManutencao.PREVENTIVA || m.getTipo() == TipoManutencao.EMERGENCIAL) {
+                        comp.setDataInicioCiclo(java.time.LocalDateTime.now());
+                        comp.setProximaManutencao(java.time.LocalDateTime.now().plusMonths(8));
+                        comp.setStatus(StatusComputador.ATIVO);
+                    }
+                    computadorRepository.save(comp);
+                }
             }
         }
         if (dto.getDescricao() != null) m.setDescricao(dto.getDescricao());

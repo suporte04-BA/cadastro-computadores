@@ -637,6 +637,7 @@ function renderDashboardKpis(eq, man, os, alertas) {
         { i: 'fa-tools', l: 'Em Manutenção', v: (eq.manutençãoPreditiva || 0) + (eq.manutençãoPreventiva || 0) + (eq.manutençãoEmergencial || 0), c: 'yellow', t: 'MANUT', key: 'dsh-eq-manut' },
         { i: 'fa-check-circle', l: 'Concluídos', v: eq.concluidos || 0, c: 'green', t: 'CONCLUIDO', key: 'dsh-eq-concluidos' },
         { i: 'fa-exclamation-triangle', l: 'Manut. Vencida', v: eq.manutençãoVencida || 0, c: 'red', t: 'VENCIDA', key: 'dsh-man-vencida' },
+        { i: 'fa-clock', l: 'Ciclo Atrasado', v: (eq.faseAtrasado || 0), c: 'red', t: 'ATRASO', key: 'dsh-eq-atraso' },
         { i: 'fa-shield-alt', l: 'Garantia Vencida', v: (alertas.garantiaVencida || []).length, c: 'red', t: 'GARANTIA', key: 'dsh-garantia' },
         { i: 'fa-clipboard-list', l: 'OS Abertas', v: (os.abertas || 0) + (os.emAnalise || 0), c: 'orange', t: 'OS', key: 'dsh-os-abertas' }
     ];
@@ -748,7 +749,16 @@ function renderKpiDetailPanel(key) {
                     renderKpiDetailHTML(container, title, icon, color, list.map(function(eq) {
                         var s = sm[eq.status] || { c: 'badge-inativo', i: 'fa-circle' };
                         var sl = escapeHtml(eq.status.replace(/_/g, ' '));
-                        return '<div class="stat-detail-item" onclick="showComputadorDetail(' + eq.id + ')"><div class="stat-detail-item-icon" style="background:var(--red-bg);color:var(--red);"><i class="fas fa-exclamation-triangle"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(eq.nomePc) + '</div><div class="stat-detail-item-sub">' + escapeHtml(eq.modeloMarca) + '</div></div><div class="stat-detail-item-badge"><span class="badge ' + s.c + '">' + sl + '</span></div></div>';
+                        var atrasoDias = eq.diasRestantes !== null && eq.diasRestantes !== undefined ? Math.abs(eq.diasRestantes) : '?';
+                        return '<div class="stat-detail-item" onclick="showComputadorDetail(' + eq.id + ')"><div class="stat-detail-item-icon" style="background:var(--red-bg);color:var(--red);"><i class="fas fa-exclamation-triangle"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(eq.nomePc) + '</div><div class="stat-detail-item-sub">' + escapeHtml(eq.modeloMarca) + ' - Atrasado ha ' + atrasoDias + ' dias</div></div><div class="stat-detail-item-badge"><span class="badge badge-emergencial">' + sl + '</span></div></div>';
+                    }).join(''));
+                });
+            } else if (key === 'dsh-eq-atraso') {
+                title = 'Computadores com Ciclo Atrasado'; icon = 'fa-clock'; color = 'red';
+                apiFetch('/api/computadores/manutenção-vencida').then(function(list) {
+                    renderKpiDetailHTML(container, title, icon, color, list.map(function(eq) {
+                        var atrasoDias = eq.diasRestantes !== null && eq.diasRestantes !== undefined ? Math.abs(eq.diasRestantes) : '?';
+                        return '<div class="stat-detail-item" onclick="showComputadorDetail(' + eq.id + ')"><div class="stat-detail-item-icon" style="background:var(--red-bg);color:var(--red);"><i class="fas fa-clock"></i></div><div class="stat-detail-item-info"><div class="stat-detail-item-name">' + escapeHtml(eq.nomePc) + '</div><div class="stat-detail-item-sub">' + escapeHtml(eq.modeloMarca) + ' - ' + atrasoDias + ' dias de atraso</div></div><div class="stat-detail-item-badge"><span class="badge badge-emergencial">Atrasado</span></div></div>';
                     }).join(''));
                 });
             } else if (key === 'dsh-garantia') {
@@ -855,7 +865,15 @@ function renderComputadoresCards(data) {
         var s = sm[eq.status] || { c: 'badge-inativo', i: 'fa-circle' }, sl = escapeHtml(eq.status.replace('MANUTENCAO_', 'Man. ').replace(/_/g, ' '));
         var admin = getPerfil() === 'ADMIN' ? '<button onclick="event.stopPropagation();confirmDelete(\'computador\',' + eq.id + ',\'' + escapeJsStr(eq.nomePc) + '\')" class="action-btn action-btn-delete" title="Excluir"><i class="fas fa-trash"></i></button>' : '';
         var checkHtml = getPerfil() === 'ADMIN' ? '<input type="checkbox" class="bulk-check" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation();toggleSelection(' + eq.id + ',this.checked)" title="Selecionar">' : '';
-        return '<div class="pc-card' + (isSelected ? ' selected' : '') + '" onclick="showComputadorDetail(' + eq.id + ')">' + checkHtml + '<div class="pc-card-foto">' + getComputerPhoto(eq, { w: 320, h: 220 }) + '<div class="pc-card-status-bar"><span class="badge ' + s.c + '"><i class="fas ' + s.i + '" style="font-size:9px;"></i> ' + sl + '</span></div></div><div class="pc-card-body"><div class="pc-card-name">' + escapeHtml(eq.nomePc) + '</div><div class="pc-card-model">' + escapeHtml(eq.modeloMarca) + '</div><div class="pc-card-specs"><span class="pc-card-spec">' + escapeHtml(eq.processador) + '</span><span class="pc-card-spec">' + escapeHtml(eq.memoriaRam) + '</span><span class="pc-card-spec">' + escapeHtml(eq.armazenamento) + '</span></div><div class="pc-card-footer"><span class="pc-card-user"><i class="fas fa-user"></i> ' + escapeHtml(eq.usuarioDesignado || 'Sem usuario') + '</span><div class="pc-card-actions" onclick="event.stopPropagation()"><button onclick="event.stopPropagation();showComputadorForm(' + eq.id + ')" class="action-btn action-btn-edit" title="Editar"><i class="fas fa-pen"></i></button>' + admin + '</div></div></div></div>';
+        var cicloHtml = '';
+        if (eq.diasDesdeInicioCiclo !== null && eq.diasDesdeInicioCiclo !== undefined) {
+            var pct = Math.min(100, Math.max(0, (eq.diasDesdeInicioCiclo / 240) * 100));
+            var corCiclo = pct < 50 ? 'var(--green)' : pct < 75 ? 'var(--yellow)' : 'var(--red)';
+            var cicloTexto = eq.diasRestantes > 0 ? eq.diasRestantes + 'd restantes' : Math.abs(eq.diasRestantes) + 'd atrasado';
+            var faseLabel = { 'ATIVO': 'Ativo', 'PREDITIVO': 'Preditivo', 'PREVENTIVO': 'Preventivo', 'ATRASADO': 'Atrasado' };
+            cicloHtml = '<div class="pc-card-ciclo"><div class="ciclo-bar"><div class="ciclo-fill" style="width:' + pct + '%;background:' + corCiclo + ';"></div></div><div class="ciclo-info"><span class="ciclo-fase" style="color:' + corCiclo + ';">' + (faseLabel[eq.faseCiclo] || eq.faseCiclo) + '</span><span class="ciclo-dias">' + cicloTexto + '</span></div></div>';
+        }
+        return '<div class="pc-card' + (isSelected ? ' selected' : '') + '" onclick="showComputadorDetail(' + eq.id + ')">' + checkHtml + '<div class="pc-card-foto">' + getComputerPhoto(eq, { w: 320, h: 220 }) + '<div class="pc-card-status-bar"><span class="badge ' + s.c + '"><i class="fas ' + s.i + '" style="font-size:9px;"></i> ' + sl + '</span></div></div><div class="pc-card-body"><div class="pc-card-name">' + escapeHtml(eq.nomePc) + '</div><div class="pc-card-model">' + escapeHtml(eq.modeloMarca) + '</div><div class="pc-card-specs"><span class="pc-card-spec">' + escapeHtml(eq.processador) + '</span><span class="pc-card-spec">' + escapeHtml(eq.memoriaRam) + '</span><span class="pc-card-spec">' + escapeHtml(eq.armazenamento) + '</span></div>' + cicloHtml + '<div class="pc-card-footer"><span class="pc-card-user"><i class="fas fa-user"></i> ' + escapeHtml(eq.usuarioDesignado || 'Sem usuario') + '</span><div class="pc-card-actions" onclick="event.stopPropagation()"><button onclick="event.stopPropagation();showComputadorForm(' + eq.id + ')" class="action-btn action-btn-edit" title="Editar"><i class="fas fa-pen"></i></button>' + admin + '</div></div></div></div>';
     }).join('');
     renderPagination('cards-pagination', data.totalPages, data.page !== undefined ? data.page : data.number, loadComputadores);
 }
@@ -895,6 +913,13 @@ async function showComputadorDetail(id) {
             extraItems.push(['Garantia', garLabel + ' ' + garStatus]);
         }
         if (eq.notas) extraItems.push(['Notas', escapeHtml(eq.notas)]);
+        if (eq.diasDesdeInicioCiclo !== null && eq.diasDesdeInicioCiclo !== undefined) {
+            var pct = Math.min(100, Math.max(0, (eq.diasDesdeInicioCiclo / 240) * 100));
+            var corCiclo = pct < 50 ? 'var(--green)' : pct < 75 ? 'var(--yellow)' : 'var(--red)';
+            var faseLabel = { 'ATIVO': 'Ativo (0-4m)', 'PREDITIVO': 'Preditivo (5-6m)', 'PREVENTIVO': 'Preventivo (7-8m)', 'ATRASADO': 'Atrasado (8m+)' };
+            var cicloInfo = '<div style="margin-top:4px;"><div style="height:8px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + corCiclo + ';border-radius:4px;transition:width 0.3s;"></div></div><div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;"><span style="color:' + corCiclo + ';font-weight:600;">' + (faseLabel[eq.faseCiclo] || eq.faseCiclo) + '</span><span style="color:var(--text-muted);">' + eq.diasDesdeInicioCiclo + ' dias / 240 dias</span></div><div style="font-size:11px;color:' + (eq.diasRestantes > 0 ? 'var(--text-muted)' : 'var(--red)') + ';margin-top:2px;">' + (eq.diasRestantes > 0 ? eq.diasRestantes + ' dias restantes' : 'Atrasado ha ' + Math.abs(eq.diasRestantes) + ' dias') + '</div></div>';
+            extraItems.push(['Ciclo Manutencao (8 meses)', cicloInfo]);
+        }
         if (extraItems.length > 0) {
             extraHtml = '<div style="margin-top:20px;"><h4 style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;"><i class="fas fa-info-circle" style="color:var(--primary-light);margin-right:6px;"></i>Detalhes Adicionais</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">';
             extraItems.forEach(function(item) { extraHtml += '<div><label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">' + escapeHtml(item[0]) + '</label><p style="font-size:13px;color:var(--text-primary);font-weight:500;margin-top:2px;">' + item[1] + '</p></div>'; });
@@ -1798,6 +1823,12 @@ function renderStatsGerais(eq, man, os) {
     html += '<div class="stat-card-item" onclick="toggleStatDetail(\'man-total\')" data-key="man-total"><div class="stat-card-icon orange"><i class="fas fa-tools"></i></div><div><div class="stat-card-value">' + (man.total || 0) + '</div><div class="stat-card-label">Total Manutenções</div></div></div>';
     html += '<div class="stat-card-item" onclick="toggleStatDetail(\'man-pendentes\')" data-key="man-pendentes"><div class="stat-card-icon yellow"><i class="fas fa-clock"></i></div><div><div class="stat-card-value">' + (man.pendentes || 0) + '</div><div class="stat-card-label">Pendentes</div></div></div>';
     html += '<div class="stat-card-item" onclick="toggleStatDetail(\'man-concluidas\')" data-key="man-concluidas"><div class="stat-card-icon green"><i class="fas fa-check-double"></i></div><div><div class="stat-card-value">' + (man.concluidas || 0) + '</div><div class="stat-card-label">Concluídas</div></div></div>';
+    html += '</div></div>';
+    html += '<div class="stat-card-group" style="margin-top:14px;"><div class="stat-card-group-title"><i class="fas fa-clock"></i> CICLO MANUTENCAO (8 meses)</div><div class="stat-card-items">';
+    html += '<div class="stat-card-item"><div class="stat-card-icon green"><i class="fas fa-check-circle"></i></div><div><div class="stat-card-value">' + (eq.faseAtivo || 0) + '</div><div class="stat-card-label">Ativos (0-4m)</div></div></div>';
+    html += '<div class="stat-card-item"><div class="stat-card-icon yellow"><i class="fas fa-search"></i></div><div><div class="stat-card-value">' + (eq.fasePreditivo || 0) + '</div><div class="stat-card-label">Preditivos (5-6m)</div></div></div>';
+    html += '<div class="stat-card-item"><div class="stat-card-icon orange"><i class="fas fa-shield-alt"></i></div><div><div class="stat-card-value">' + (eq.fasePreventivo || 0) + '</div><div class="stat-card-label">Preventivos (7-8m)</div></div></div>';
+    html += '<div class="stat-card-item"><div class="stat-card-icon red"><i class="fas fa-exclamation-triangle"></i></div><div><div class="stat-card-value">' + (eq.faseAtrasado || 0) + '</div><div class="stat-card-label">Atrasados (8m+)</div></div></div>';
     html += '</div></div>';
     html += '<div class="stat-card-group" style="margin-top:14px;"><div class="stat-card-group-title"><i class="fas fa-clipboard-list"></i> ORDENS DE SERVICO</div><div class="stat-card-items">';
     html += '<div class="stat-card-item" onclick="toggleStatDetail(\'os-total\')" data-key="os-total"><div class="stat-card-icon purple"><i class="fas fa-clipboard-list"></i></div><div><div class="stat-card-value">' + (os.total || 0) + '</div><div class="stat-card-label">Total OS</div></div></div>';

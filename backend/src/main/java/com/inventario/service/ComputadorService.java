@@ -14,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Service
@@ -69,6 +70,7 @@ public class ComputadorService {
         }
         Computador entity = toEntity(dto);
         entity.setId(null);
+        entity.setDataInicioCiclo(LocalDateTime.now());
         return toDTO(repository.save(entity));
     }
 
@@ -122,7 +124,8 @@ public class ComputadorService {
             if (newStatus == StatusComputador.CONCLUIDO) {
                 existing.setDataUltimaManutencao(LocalDateTime.now());
                 existing.setManutencaoConcluidaSemestre(true);
-                existing.setProximaManutencao(LocalDateTime.now().plusMonths(6));
+                existing.setProximaManutencao(LocalDateTime.now().plusMonths(8));
+                existing.setDataInicioCiclo(LocalDateTime.now());
             }
         }
 
@@ -135,7 +138,8 @@ public class ComputadorService {
             .orElseThrow(() -> new RecursoNaoEncontradoException("Computador", id));
         c.setDataUltimaManutencao(LocalDateTime.now());
         c.setManutencaoConcluidaSemestre(true);
-        c.setProximaManutencao(LocalDateTime.now().plusMonths(6));
+        c.setProximaManutencao(LocalDateTime.now().plusMonths(8));
+        c.setDataInicioCiclo(LocalDateTime.now());
         if (c.getStatus() == StatusComputador.MANUTENCAO_EMERGENCIAL) {
             c.setStatus(StatusComputador.CONCLUIDO);
         }
@@ -159,7 +163,23 @@ public class ComputadorService {
         stats.put("manutencaoPreventiva", repository.countByStatus(StatusComputador.MANUTENCAO_PREVENTIVA));
         stats.put("manutencaoEmergencial", repository.countByStatus(StatusComputador.MANUTENCAO_EMERGENCIAL));
         stats.put("concluidos", repository.countByStatus(StatusComputador.CONCLUIDO));
-        stats.put("manutencaoVencida", repository.countManutencaoVencida());
+        stats.put("manutencaoVencida", repository.countManutencaoVencida(LocalDateTime.now().minusMonths(8)));
+
+        long faseAtivo = 0, fasePreditivo = 0, fasePreventivo = 0, faseAtrasado = 0;
+        List<Computador> todos = repository.findAll();
+        for (Computador c : todos) {
+            String fase = calcularFaseCiclo(c);
+            switch (fase) {
+                case "ATIVO": faseAtivo++; break;
+                case "PREDITIVO": fasePreditivo++; break;
+                case "PREVENTIVO": fasePreventivo++; break;
+                case "ATRASADO": faseAtrasado++; break;
+            }
+        }
+        stats.put("faseAtivo", faseAtivo);
+        stats.put("fasePreditivo", fasePreditivo);
+        stats.put("fasePreventivo", fasePreventivo);
+        stats.put("faseAtrasado", faseAtrasado);
 
         List<Object[]> byStatus = repository.countGroupByStatus();
         Map<String, Long> porStatus = new LinkedHashMap<>();
@@ -171,7 +191,7 @@ public class ComputadorService {
 
     @Transactional(readOnly = true)
     public List<ComputadorDTO> listarManutencaoVencida() {
-        return repository.findManutencaoVencida().stream()
+        return repository.findManutencaoVencida(LocalDateTime.now().minusMonths(8)).stream()
             .map(this::toDTO).toList();
     }
 
@@ -213,6 +233,17 @@ public class ComputadorService {
     }
 
     private ComputadorDTO toDTO(Computador c) {
+        LocalDateTime inicioCiclo = c.getDataInicioCiclo() != null ? c.getDataInicioCiclo() : c.getDataCriacao();
+        long diasDesdeInicio = 0;
+        long diasRestantes = 0;
+        String faseCiclo = "ATIVO";
+        if (inicioCiclo != null) {
+            LocalDateTime fimCiclo = inicioCiclo.plusMonths(8);
+            diasDesdeInicio = ChronoUnit.DAYS.between(inicioCiclo, LocalDateTime.now());
+            diasRestantes = ChronoUnit.DAYS.between(LocalDateTime.now(), fimCiclo);
+            faseCiclo = calcularFaseCiclo(diasDesdeInicio);
+        }
+
         return ComputadorDTO.builder()
             .id(c.getId())
             .nomePc(c.getNomePc())
@@ -236,7 +267,26 @@ public class ComputadorService {
             .notas(c.getNotas())
             .proximaManutencao(c.getProximaManutencao())
             .dataCadastro(c.getDataCriacao())
+            .dataInicioCiclo(inicioCiclo)
+            .diasDesdeInicioCiclo(diasDesdeInicio)
+            .diasRestantes(diasRestantes)
+            .faseCiclo(faseCiclo)
             .build();
+    }
+
+    private String calcularFaseCiclo(long diasDesdeInicio) {
+        long meses = diasDesdeInicio / 30;
+        if (meses <= 4) return "ATIVO";
+        if (meses <= 6) return "PREDITIVO";
+        if (meses <= 8) return "PREVENTIVO";
+        return "ATRASADO";
+    }
+
+    private String calcularFaseCiclo(Computador c) {
+        LocalDateTime inicioCiclo = c.getDataInicioCiclo() != null ? c.getDataInicioCiclo() : c.getDataCriacao();
+        if (inicioCiclo == null) return "ATIVO";
+        long diasDesdeInicio = ChronoUnit.DAYS.between(inicioCiclo, LocalDateTime.now());
+        return calcularFaseCiclo(diasDesdeInicio);
     }
 
     private Computador toEntity(ComputadorDTO dto) {
