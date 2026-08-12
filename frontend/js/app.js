@@ -49,16 +49,16 @@ var MOCK_COMPUTADORES = [
 var MOCK_MANUTENCOES = [
     { id: 1, computadorId: 3, computadorNome: 'PC-LOG-001', tipo: 'PREVENTIVA', status: 'EM_ANDAMENTO', descricao: 'Troca de pasta térmica e limpeza geral', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Pasta térmica Artic MX-5', observacoes: 'Agendado para manhã', dataCadastro: '2024-06-10T08:00:00', dataConclusao: null },
     { id: 2, computadorId: 4, computadorNome: 'PC-LOG-002', tipo: 'EMERGENCIAL', status: 'PENDENTE', descricao: 'PC não liga. Verificar fonte e placa mãe', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: '', observacoes: 'Prioridade alta', dataCadastro: '2024-06-12T14:30:00', dataConclusao: null },
-    { id: 3, computadorId: 7, computadorNome: 'PC-FIN-002', tipo: 'PREDITIVA', status: 'CONCLUIDA', descricao: 'Atualização de firmware SSD', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observacoes: 'Disco com 87% de saúde', dataCadastro: '2024-05-20T09:00:00', dataConclusao: '2024-05-20T11:30:00' },
+    { id: 3, computadorId: 7, computadorNome: 'PC-FIN-002', tipo: 'PREDITIVA', status: 'ATIVO', descricao: 'Atualização de firmware SSD', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observacoes: 'Disco com 87% de saúde', dataCadastro: '2024-05-20T09:00:00', dataConclusao: '2024-05-20T11:30:00' },
     { id: 4, computadorId: 13, computadorNome: 'PC-PRD-003', tipo: 'PREVENTIVA', status: 'PENDENTE', descricao: 'Limpeza preventiva trimestral', tecnicoResponsavel: 'Maria Ferreira', pecasTrocadas: 'Filtro de pó', observacoes: 'Equipamento de produção', dataCadastro: '2024-06-01T07:00:00', dataConclusao: null },
     { id: 5, computadorId: 15, computadorNome: 'PC-ALM-001', tipo: 'CORRETIVA', status: 'EM_ANDAMENTO', descricao: 'Substituição de HD danificado por SSD', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: 'SSD Kingston A400 240GB', observacoes: 'Backup realizado', dataCadastro: '2024-06-08T10:00:00', dataConclusao: null },
-    { id: 6, computadorId: 1, computadorNome: 'PC-ADM-001', tipo: 'PREVENTIVA', status: 'CONCLUIDA', descricao: 'Atualização de BIOS', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observacoes: 'BIOS atualizada v1.3 para v1.5', dataCadastro: '2024-05-15T14:00:00', dataConclusao: '2024-05-15T15:00:00' },
+    { id: 6, computadorId: 1, computadorNome: 'PC-ADM-001', tipo: 'PREVENTIVA', status: 'ATIVO', descricao: 'Atualização de BIOS', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observacoes: 'BIOS atualizada v1.3 para v1.5', dataCadastro: '2024-05-15T14:00:00', dataConclusao: '2024-05-15T15:00:00' },
     { id: 7, computadorId: 2, computadorNome: 'PC-ADM-002', tipo: 'CORRETIVA', status: 'CANCELADA', descricao: 'Substituição de teclado', tecnicoResponsavel: 'Maria Ferreira', pecasTrocadas: 'Teclado USB ABNT2', observacoes: 'Cancelado', dataCadastro: '2024-05-10T11:00:00', dataConclusao: null },
-    { id: 8, computadorId: 9, computadorNome: 'PC-VEN-001', tipo: 'EMERGENCIAL', status: 'CONCLUIDA', descricao: 'Remoção de malware e formatação', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: 'Nenhuma', observacoes: 'Sistema reinstalado com Windows 11 Pro', dataCadastro: '2024-05-25T08:30:00', dataConclusao: '2024-05-26T17:00:00' },
+    { id: 8, computadorId: 9, computadorNome: 'PC-VEN-001', tipo: 'EMERGENCIAL', status: 'ATIVO', descricao: 'Remoção de malware e formatação', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: 'Nenhuma', observacoes: 'Sistema reinstalado com Windows 11 Pro', dataCadastro: '2024-05-25T08:30:00', dataConclusao: '2024-05-26T17:00:00' },
     { id: 9, computadorId: 5, computadorNome: 'PC-TI-001', tipo: 'PREDITIVA', status: 'EM_ANDAMENTO', descricao: 'Teste de estresse na memoria RAM', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: '', observacoes: 'Rodando MemTest86 por 4 horas', dataCadastro: '2024-06-11T09:00:00', dataConclusao: null },
     { id: 10, computadorId: 6, computadorNome: 'PC-FIN-001', tipo: 'PREVENTIVA', status: 'PENDENTE', descricao: 'Instalação de updates acumulados', tecnicoResponsavel: 'Maria Ferreira', pecasTrocadas: 'Nenhuma', observacoes: 'Agendar para horário de almoço', dataCadastro: '2024-06-13T08:00:00', dataConclusao: null },
-    { id: 11, computadorId: 10, computadorNome: 'PC-VEN-002', tipo: 'CORRETIVA', status: 'CONCLUIDA', descricao: 'Reparo no ventilador cooling', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: 'Cooler fan 80mm', observacoes: 'Equipamento operaçãondo normalmente', dataCadastro: '2024-05-18T13:00:00', dataConclusao: '2024-05-18T15:30:00' },
-    { id: 12, computadorId: 8, computadorNome: 'PC-RH-001', tipo: 'PREDITIVA', status: 'CONCLUIDA', descricao: 'Otimização do Windows e desfragmentação do SSD', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observacoes: 'Boot reduzido de 45s para 18s', dataCadastro: '2024-05-22T16:00:00', dataConclusao: '2024-05-22T18:00:00' }
+    { id: 11, computadorId: 10, computadorNome: 'PC-VEN-002', tipo: 'CORRETIVA', status: 'ATIVO', descricao: 'Reparo no ventilador cooling', tecnicoResponsavel: 'Roberto Alves', pecasTrocadas: 'Cooler fan 80mm', observacoes: 'Equipamento operaçãondo normalmente', dataCadastro: '2024-05-18T13:00:00', dataConclusao: '2024-05-18T15:30:00' },
+    { id: 12, computadorId: 8, computadorNome: 'PC-RH-001', tipo: 'PREDITIVA', status: 'ATIVO', descricao: 'Otimização do Windows e desfragmentação do SSD', tecnicoResponsavel: 'Carlos Mendes', pecasTrocadas: 'Nenhuma', observacoes: 'Boot reduzido de 45s para 18s', dataCadastro: '2024-05-22T16:00:00', dataConclusao: '2024-05-22T18:00:00' }
 ];
 
 var MOCK_ORDENS = [
@@ -92,6 +92,7 @@ var MOCK_DEPARTAMENTOS = [
     { id: 3, nome: 'RH', totalComputadores: 3 },
     { id: 4, nome: 'Marketing', totalComputadores: 4 },
     { id: 5, nome: 'Operações', totalComputadores: 6 }
+    { id: 6, nome: 'Marketing', totalComputadores: 2 }
 ];
 
 var MOCK_SOFTWARE = [
@@ -121,7 +122,6 @@ function syncManutencaoWithComputador(computadorId, manutStatus, manutTipo) {
     var statusMap = {
         'PENDENTE': manutTipo === 'EMERGENCIAL' ? 'MANUTENCAO_EMERGENCIAL' : manutTipo === 'PREDITIVA' ? 'MANUTENCAO_PREDITIVA' : 'MANUTENCAO_PREVENTIVA',
         'EM_ANDAMENTO': manutTipo === 'EMERGENCIAL' ? 'MANUTENCAO_EMERGENCIAL' : manutTipo === 'PREDITIVA' ? 'MANUTENCAO_PREDITIVA' : 'MANUTENCAO_PREVENTIVA',
-        'CONCLUIDA': 'CONCLUIDO',
         'CANCELADA': 'ATIVO'
     };
     var hasActiveMaint = MOCK_MANUTENCOES.some(function(m) {
@@ -225,7 +225,6 @@ function mockFetch(url, opts) {
         var pred = MOCK_COMPUTADORES.filter(function(c) { return c.status === 'MANUTENCAO_PREDITIVA'; }).length;
         var prev = MOCK_COMPUTADORES.filter(function(c) { return c.status === 'MANUTENCAO_PREVENTIVA'; }).length;
         var emerg = MOCK_COMPUTADORES.filter(function(c) { return c.status === 'MANUTENCAO_EMERGENCIAL'; }).length;
-        var concl = MOCK_COMPUTADORES.filter(function(c) { return c.status === 'CONCLUIDO'; }).length;
         return { total: MOCK_COMPUTADORES.length, ativos: ativos, manutencaoPreditiva: pred, manutencaoPreventiva: prev, manutencaoEmergencial: emerg, concluidos: concl, manutencaoVencida: 2, porStatus: { ATIVO: ativos, MANUTENCAO_PREDITIVA: pred, MANUTENCAO_PREVENTIVA: prev, MANUTENCAO_EMERGENCIAL: emerg, CONCLUIDO: concl } };
     }
 
@@ -500,7 +499,6 @@ function handleWsEvent(event) {
         else if (acao === 'EXCLUSAO') { toastMsg = 'Computador removido (ID: ' + (dados.id || '') + ')'; toastType = 'warning'; }
         else if (acao === 'ALTERACAO_EM_MASSA') { toastMsg = (dados.total || 0) + ' computadores atualizados em massa'; toastType = 'info'; }
         else if (acao === 'EXCLUSAO_EM_MASSA') { toastMsg = (dados.total || 0) + ' computadores excluídos em massa'; toastType = 'warning'; }
-        else if (acao === 'IMPORTACAO') { toastMsg = (dados.total || 0) + ' computadores importados via CSV'; toastType = 'success'; }
         refreshCurrentSection(tipo);
     } else if (tipo === 'MANUTENCAO') {
         if (acao === 'CRIACAO') { toastMsg = 'Nova manutenção criada'; toastType = 'success'; }
@@ -1181,7 +1179,7 @@ function setupPhotoUpload() {
     }
     function handlePhotoFile(file) {
         if (!isImageFile(file)) { showToast('Formato não suportado.', 'error'); return; }
-        if (file.size > 50 * 1024 * 1024) { showToast('Arquivo excede 50MB.', 'error'); return; }
+        if (file.size > 100 * 1024 * 1024) { showToast('Arquivo excede 100MB.', 'error'); return; }
         _photoUploading = true;
         preview.innerHTML = '<div style="text-align:center;padding:30px;"><div class="spinner"></div><p style="font-size:12px;color:var(--text-muted);margin-top:10px;">Enviando ' + formatFileSize(file.size) + '...</p></div>';
         var fd = new FormData();
